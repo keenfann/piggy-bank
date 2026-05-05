@@ -64,7 +64,15 @@ button,
   padding-inline: 10px;
 }
 
+.icon-button {
+  width: 42px;
+  padding: 0;
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
 .app-shell {
+  position: relative;
   width: min(1120px, 100%);
   margin: 0 auto;
   padding: 18px;
@@ -76,6 +84,7 @@ header {
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 18px;
+  padding-right: 240px;
 }
 
 h1,
@@ -210,16 +219,69 @@ textarea {
 
 .toolbar,
 .actions,
-.inline-form,
-.user-menu {
+.inline-form {
   display: flex;
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
 }
 
+.user-menu {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  z-index: 10;
+}
+
+.user-menu-trigger {
+  background: #edf7f0;
+  color: #14532d;
+  max-width: min(220px, calc(100vw - 36px));
+}
+
+.user-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 180px;
+  overflow: hidden;
+  border: 1px solid #dfe9e2;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 14px 34px rgba(21, 48, 31, .14);
+}
+
+.menu-item {
+  justify-content: flex-start;
+  width: 100%;
+  min-height: 40px;
+  border-radius: 0;
+  background: #fff;
+  color: #17201a;
+  font-weight: 700;
+}
+
+.menu-item:hover,
+.menu-item:focus-visible {
+  background: #edf7f0;
+}
+
 .toolbar {
   margin-bottom: 12px;
+}
+
+.dashboard-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
+.view-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
 }
 
 .inline-form {
@@ -287,6 +349,34 @@ th {
   padding: 12px;
 }
 
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(23, 32, 26, .38);
+}
+
+.modal {
+  width: min(480px, 100%);
+  max-height: calc(100vh - 36px);
+  overflow: auto;
+}
+
+.modal-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.modal-heading h3 {
+  margin-bottom: 0;
+}
+
 @media (max-width: 760px) {
   .app-shell {
     padding: 12px;
@@ -295,6 +385,8 @@ th {
   header {
     align-items: flex-start;
     flex-direction: column;
+    padding-top: 52px;
+    padding-right: 0;
   }
 
   .grid {
@@ -309,14 +401,28 @@ th {
   .balances,
   .balance,
   .actions,
-  .toolbar,
-  .user-menu {
+  .dashboard-actions,
+  .view-heading,
+  .toolbar {
     width: 100%;
   }
 
+  .view-heading {
+    flex-direction: column;
+  }
+
   .actions > *,
-  .toolbar > *,
-  .user-menu > * {
+  .view-heading > *,
+  .toolbar > * {
     flex: 1;
+  }
+
+  .dashboard-actions {
+    justify-content: flex-start;
+  }
+
+  .user-menu {
+    top: 12px;
+    right: 12px;
   }
 }

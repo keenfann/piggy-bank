@@ -1,7 +1,8 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { apiFetch, ensureCsrf, resetCsrf, type AccountType, type Child, type ImportResult, type Transaction, type TransactionType, type User } from './api';
 
 type ViewState = 'loading' | 'setup' | 'login' | 'app';
+type AppSection = 'dashboard' | 'settings';
 
 interface TxForm {
   account: AccountType;
@@ -27,6 +28,8 @@ export function App() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [appSection, setAppSection] = useState<AppSection>('dashboard');
+  const [txModalOpen, setTxModalOpen] = useState(false);
   const [setupForm, setSetupForm] = useState({ username: 'parent', password: '' });
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   const [childName, setChildName] = useState('');
@@ -53,6 +56,19 @@ export function App() {
       setPhotoUrl(selectedChild.photoUrl || '');
     }
   }, [selectedChild?.id]);
+
+  useEffect(() => {
+    if (!txModalOpen) return;
+
+    function closeTransactionModal(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setTxModalOpen(false);
+      }
+    }
+
+    document.addEventListener('keydown', closeTransactionModal);
+    return () => document.removeEventListener('keydown', closeTransactionModal);
+  }, [txModalOpen]);
 
   async function bootstrap() {
     try {
@@ -120,6 +136,8 @@ export function App() {
       setUser(null);
       setChildren([]);
       setTransactions([]);
+      setAppSection('dashboard');
+      setTxModalOpen(false);
       setView('login');
       await ensureCsrf();
     });
@@ -156,6 +174,7 @@ export function App() {
       setTxForm(emptyTxForm());
       await loadChildren();
       await loadTransactions(selectedChild.id);
+      setTxModalOpen(false);
       setNotice('Transaktionen sparades.');
     });
   }
@@ -262,157 +281,265 @@ export function App() {
   const isParent = user?.role === 'parent';
 
   return (
-    <Shell user={user} onLogout={logout}>
+    <Shell user={user} onLogout={logout} onOpenSettings={() => setAppSection('settings')}>
       <Message error={error} notice={notice} />
-      <section className="toolbar" aria-label="Barn">
-        {children.map((child) => (
-          <button
-            key={child.id}
-            className={child.id === selectedChild?.id ? 'tab active' : 'tab'}
-            onClick={() => setSelectedChildId(child.id)}
-          >
-            {child.name}
-          </button>
-        ))}
-      </section>
-
-      {isParent && (
-        <form className="inline-form" onSubmit={addChild}>
-          <TextInput label="Nytt barn" value={childName} onChange={setChildName} />
-          <button className="secondary">Lägg till</button>
-        </form>
-      )}
-
-      {selectedChild ? (
-        <main className="grid">
-          <section className="panel child-hero">
-            {selectedChild.photoUrl ? <img src={selectedChild.photoUrl} alt="" /> : <div className="avatar">{selectedChild.name.slice(0, 1).toUpperCase()}</div>}
+      {appSection === 'settings' ? (
+        <>
+          <div className="view-heading">
             <div>
-              <p className="eyebrow">Sparkonto</p>
-              <h2>{selectedChild.name}</h2>
-              <div className="balances">
-                <Balance label="Kontant" amountOre={selectedChild.cashBalanceOre} />
-                <Balance label="Fond" amountOre={selectedChild.fundBalanceOre} />
-              </div>
+              <p className="eyebrow">Inställningar</p>
+              <h2>Hantera appen</h2>
             </div>
-          </section>
+            <button className="secondary" type="button" onClick={() => setAppSection('dashboard')}>Till översikt</button>
+          </div>
 
-          {isParent && (
-            <section className="panel">
-              <h3>Ny transaktion</h3>
-              <form className="stack" onSubmit={addTransaction}>
-                <label>
-                  Konto
-                  <select value={txForm.account} onChange={(event) => setTxForm({ ...txForm, account: event.target.value as AccountType })}>
-                    <option value="cash">Kontant</option>
-                    <option value="fund">Fond</option>
-                  </select>
-                </label>
-                <label>
-                  Typ
-                  <select value={txForm.type} onChange={(event) => setTxForm({ ...txForm, type: event.target.value as TransactionType })}>
-                    <option value="deposit">Insättning</option>
-                    <option value="withdrawal">Uttag</option>
-                  </select>
-                </label>
-                <TextInput label="Belopp (kr)" inputMode="decimal" value={txForm.amount} onChange={(value) => setTxForm({ ...txForm, amount: value })} />
-                <TextInput label="Datum" type="date" value={txForm.date} onChange={(value) => setTxForm({ ...txForm, date: value })} />
-                <TextInput label="Kommentar" value={txForm.comment} onChange={(value) => setTxForm({ ...txForm, comment: value })} />
-                <button className="primary">Spara</button>
-              </form>
-            </section>
-          )}
-
-          <section className="panel wide">
-            <h3>Historik</h3>
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Datum</th>
-                    <th>Konto</th>
-                    <th>Typ</th>
-                    <th>Belopp</th>
-                    {isParent && <th></th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {transactions.map((tx) => (
-                    <tr key={tx.id}>
-                      <td>{tx.date}</td>
-                      <td>{accountLabel(tx.account_type)}</td>
-                      <td>{tx.type === 'deposit' ? 'Insättning' : 'Uttag'}</td>
-                      <td>{formatSek(tx.amount_ore)}</td>
-                      {isParent && (
-                        <td>
-                          <button className="danger small" onClick={() => deleteTransaction(tx.id)}>Ta bort</button>
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                  {!transactions.length && (
-                    <tr>
-                      <td colSpan={isParent ? 5 : 4}>Inga transaktioner ännu.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </section>
-
-          {isParent && (
+          {isParent ? (
             <>
-              <section className="panel">
-                <h3>Barninloggning</h3>
-                <form className="stack" onSubmit={saveChildLogin}>
-                  <TextInput label="Användarnamn" value={childLogin.username} onChange={(value) => setChildLogin({ ...childLogin, username: value })} />
-                  <TextInput label="Nytt lösenord" type="password" value={childLogin.password} onChange={(value) => setChildLogin({ ...childLogin, password: value })} />
-                  <button className="secondary">Spara inloggning</button>
-                </form>
+              <section className="toolbar" aria-label="Barn">
+                {children.map((child) => (
+                  <button
+                    key={child.id}
+                    className={child.id === selectedChild?.id ? 'tab active' : 'tab'}
+                    onClick={() => setSelectedChildId(child.id)}
+                  >
+                    {child.name}
+                  </button>
+                ))}
               </section>
 
-              <section className="panel">
-                <h3>Bild</h3>
-                <form className="stack" onSubmit={savePhoto}>
-                  <TextInput label="Bild-URL" value={photoUrl} onChange={setPhotoUrl} />
-                  <button className="secondary">Spara bild</button>
-                </form>
+              <main className="grid">
+                <section className="panel">
+                  <h3>Barn</h3>
+                  <form className="stack" onSubmit={addChild}>
+                    <TextInput label="Nytt barn" value={childName} onChange={setChildName} />
+                    <button className="secondary">Lägg till</button>
+                  </form>
+                </section>
+
+                {selectedChild ? (
+                  <>
+                    <section className="panel">
+                      <h3>Barninloggning</h3>
+                      <form className="stack" onSubmit={saveChildLogin}>
+                        <TextInput label="Användarnamn" value={childLogin.username} onChange={(value) => setChildLogin({ ...childLogin, username: value })} />
+                        <TextInput label="Nytt lösenord" type="password" value={childLogin.password} onChange={(value) => setChildLogin({ ...childLogin, password: value })} />
+                        <button className="secondary">Spara inloggning</button>
+                      </form>
+                    </section>
+
+                    <section className="panel">
+                      <h3>Bild</h3>
+                      <form className="stack" onSubmit={savePhoto}>
+                        <TextInput label="Bild-URL" value={photoUrl} onChange={setPhotoUrl} />
+                        <button className="secondary">Spara bild</button>
+                      </form>
+                    </section>
+                  </>
+                ) : (
+                  <section className="panel">Skapa ett barn för att hantera barninställningar.</section>
+                )}
+
+                <section className="panel wide">
+                  <h3>Import och export</h3>
+                  <div className="actions">
+                    <a className="button secondary" href="/api/export.json">Exportera JSON</a>
+                    <a className="button secondary" href="/api/export/transactions.csv">Exportera CSV</a>
+                  </div>
+                  <label>
+                    CSV-import
+                    <textarea value={csv} onChange={(event) => setCsv(event.target.value)} rows={7} />
+                  </label>
+                  <div className="actions">
+                    <button className="secondary" type="button" onClick={validateImport}>Validera</button>
+                    <button className="primary" type="button" onClick={commitImport}>Importera</button>
+                  </div>
+                  {importResult && (
+                    <div className="result">
+                      <strong>{importResult.imported} giltiga rader</strong>
+                      {importResult.errors.map((row) => (
+                        <p key={`${row.row}-${row.error}`}>Rad {row.row}: {row.error}</p>
+                      ))}
+                    </div>
+                  )}
+                </section>
+              </main>
+            </>
+          ) : (
+            <section className="panel">Det finns inga barninställningar för barnkonton.</section>
+          )}
+        </>
+      ) : (
+        <>
+          <section className="toolbar" aria-label="Barn">
+            {children.map((child) => (
+              <button
+                key={child.id}
+                className={child.id === selectedChild?.id ? 'tab active' : 'tab'}
+                onClick={() => setSelectedChildId(child.id)}
+              >
+                {child.name}
+              </button>
+            ))}
+          </section>
+
+          {isParent && selectedChild && (
+            <div className="dashboard-actions">
+              <button
+                className="icon-button primary"
+                type="button"
+                aria-label="Ny transaktion"
+                title="Ny transaktion"
+                onClick={() => setTxModalOpen(true)}
+              >
+                +
+              </button>
+            </div>
+          )}
+
+          {selectedChild ? (
+            <main className="grid">
+              <section className="panel child-hero">
+                {selectedChild.photoUrl ? <img src={selectedChild.photoUrl} alt="" /> : <div className="avatar">{selectedChild.name.slice(0, 1).toUpperCase()}</div>}
+                <div>
+                  <p className="eyebrow">Sparkonto</p>
+                  <h2>{selectedChild.name}</h2>
+                  <div className="balances">
+                    <Balance label="Kontant" amountOre={selectedChild.cashBalanceOre} />
+                    <Balance label="Fond" amountOre={selectedChild.fundBalanceOre} />
+                  </div>
+                </div>
               </section>
 
               <section className="panel wide">
-                <h3>Import och export</h3>
-                <div className="actions">
-                  <a className="button secondary" href="/api/export.json">Exportera JSON</a>
-                  <a className="button secondary" href="/api/export/transactions.csv">Exportera CSV</a>
+                <h3>Historik</h3>
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Datum</th>
+                        <th>Konto</th>
+                        <th>Typ</th>
+                        <th>Belopp</th>
+                        {isParent && <th></th>}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {transactions.map((tx) => (
+                        <tr key={tx.id}>
+                          <td>{tx.date}</td>
+                          <td>{accountLabel(tx.account_type)}</td>
+                          <td>{tx.type === 'deposit' ? 'Insättning' : 'Uttag'}</td>
+                          <td>{formatSek(tx.amount_ore)}</td>
+                          {isParent && (
+                            <td>
+                              <button className="danger small" onClick={() => deleteTransaction(tx.id)}>Ta bort</button>
+                            </td>
+                          )}
+                        </tr>
+                      ))}
+                      {!transactions.length && (
+                        <tr>
+                          <td colSpan={isParent ? 5 : 4}>Inga transaktioner ännu.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
                 </div>
-                <label>
-                  CSV-import
-                  <textarea value={csv} onChange={(event) => setCsv(event.target.value)} rows={7} />
-                </label>
-                <div className="actions">
-                  <button className="secondary" type="button" onClick={validateImport}>Validera</button>
-                  <button className="primary" type="button" onClick={commitImport}>Importera</button>
-                </div>
-                {importResult && (
-                  <div className="result">
-                    <strong>{importResult.imported} giltiga rader</strong>
-                    {importResult.errors.map((row) => (
-                      <p key={`${row.row}-${row.error}`}>Rad {row.row}: {row.error}</p>
-                    ))}
-                  </div>
-                )}
               </section>
-            </>
+            </main>
+          ) : (
+            <section className="panel">Öppna inställningar för att skapa ett barn.</section>
           )}
-        </main>
-      ) : (
-        <section className="panel">Skapa ett barn för att börja.</section>
+
+          {isParent && selectedChild && txModalOpen && (
+            <div className="modal-backdrop" role="presentation" onClick={() => setTxModalOpen(false)}>
+              <section
+                className="panel modal"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="transaction-modal-title"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <div className="modal-heading">
+                  <h3 id="transaction-modal-title">Ny transaktion</h3>
+                  <button
+                    className="ghost small"
+                    type="button"
+                    aria-label="Stäng"
+                    onClick={() => setTxModalOpen(false)}
+                  >
+                    Stäng
+                  </button>
+                </div>
+                <form className="stack" onSubmit={addTransaction}>
+                  <label>
+                    Konto
+                    <select value={txForm.account} onChange={(event) => setTxForm({ ...txForm, account: event.target.value as AccountType })}>
+                      <option value="cash">Kontant</option>
+                      <option value="fund">Fond</option>
+                    </select>
+                  </label>
+                  <label>
+                    Typ
+                    <select value={txForm.type} onChange={(event) => setTxForm({ ...txForm, type: event.target.value as TransactionType })}>
+                      <option value="deposit">Insättning</option>
+                      <option value="withdrawal">Uttag</option>
+                    </select>
+                  </label>
+                  <TextInput label="Belopp (kr)" inputMode="decimal" value={txForm.amount} onChange={(value) => setTxForm({ ...txForm, amount: value })} />
+                  <TextInput label="Datum" type="date" value={txForm.date} onChange={(value) => setTxForm({ ...txForm, date: value })} />
+                  <TextInput label="Kommentar" value={txForm.comment} onChange={(value) => setTxForm({ ...txForm, comment: value })} />
+                  <div className="actions">
+                    <button className="secondary" type="button" onClick={() => setTxModalOpen(false)}>Avbryt</button>
+                    <button className="primary">Spara</button>
+                  </div>
+                </form>
+              </section>
+            </div>
+          )}
+        </>
       )}
     </Shell>
   );
 }
 
-function Shell({ children, user, onLogout }: { children: React.ReactNode; user?: User | null; onLogout?: () => void }) {
+function Shell({
+  children,
+  user,
+  onLogout,
+  onOpenSettings,
+}: {
+  children: React.ReactNode;
+  user?: User | null;
+  onLogout?: () => void;
+  onOpenSettings?: () => void;
+}) {
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!userMenuOpen) return;
+
+    function closeUserMenu(event: MouseEvent) {
+      if (!userMenuRef.current?.contains(event.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    }
+
+    function closeUserMenuWithEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setUserMenuOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', closeUserMenu);
+    document.addEventListener('keydown', closeUserMenuWithEscape);
+    return () => {
+      document.removeEventListener('mousedown', closeUserMenu);
+      document.removeEventListener('keydown', closeUserMenuWithEscape);
+    };
+  }, [userMenuOpen]);
+
   return (
     <div className="app-shell">
       <header>
@@ -421,9 +548,34 @@ function Shell({ children, user, onLogout }: { children: React.ReactNode; user?:
           <h1>Sparkonto Barn</h1>
         </div>
         {user && (
-          <div className="user-menu">
-            <span>{user.username}</span>
-            <button className="ghost" onClick={onLogout}>Logga ut</button>
+          <div className="user-menu" ref={userMenuRef}>
+            <button
+              className="user-menu-trigger"
+              type="button"
+              aria-haspopup="menu"
+              aria-expanded={userMenuOpen}
+              onClick={() => setUserMenuOpen((open) => !open)}
+            >
+              {user.username}
+            </button>
+            {userMenuOpen && (
+              <div className="user-popover" role="menu">
+                <button
+                  className="menu-item"
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setUserMenuOpen(false);
+                    onOpenSettings?.();
+                  }}
+                >
+                  Inställningar
+                </button>
+                <button className="menu-item" type="button" role="menuitem" onClick={onLogout}>
+                  Logga ut
+                </button>
+              </div>
+            )}
           </div>
         )}
       </header>
