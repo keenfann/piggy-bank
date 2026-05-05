@@ -1,27 +1,16 @@
-# Implementationsplan (svenska-only)
+# Implementationsplan
 
-## Fas 1: Grund
-- Monorepo struktur: `apps/web`, `apps/api`, `packages/shared`.
-- Auth: username/lösenord, roller `FORALDER`, `BARN`.
-- Databas: PostgreSQL + migrationer.
+Piggy Bank är implementerad som en TypeScript single-package-app med React/Vite, Express och SQLite. Appen följer samma driftmönster som Episodely och Trainbook.
 
-## Fas 2: Sparlogik
-- Barn med namn + foto.
-- Två kontotyper per barn: `KONTANT`, `FOND`.
-- Transaktioner: insättning/uttag med obligatorisk kommentar + datum.
-- Belopp lagras i öre.
+## Kvarvarande förbättringar efter v1
+- Ikonuppsättning i flera PNG-storlekar för bredare PWA-stöd.
+- Automatisk schemalagd JSON-backup till disk.
+- Redigeringsvy för befintliga transaktioner i UI.
+- Valfri import från JSON-backup.
 
-## Fas 3: Import/export
-- CSV-import med torrkörning + validering.
-- Export till CSV (alla barn eller filtrerat).
-
-## Fas 4: PWA/UX
-- Mobil-först.
-- iOS-liknande animationer.
-- Svenska texter i central textmodul.
-
-## Fas 5: Kvalitet/leverans
-- Unit/integration/e2e (Playwright).
-- GitHub Actions pipeline.
-- GHCR image build + publish.
-- Synology deployment.
+## Leverans
+- `npm run typecheck`
+- `npm test`
+- `npm run test:e2e`
+- `npm run build`
+- GHCR-publicering vid push till `main`

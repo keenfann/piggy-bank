@@ -4,7 +4,14 @@
   "lang": "sv",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f4f6fb",
-  "theme_color": "#2563eb",
-  "icons": []
+  "background_color": "#f7faf8",
+  "theme_color": "#166534",
+  "icons": [
+    {
+      "src": "/piggy-bank.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
 }

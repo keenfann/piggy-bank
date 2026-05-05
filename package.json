@@ -4,10 +4,54 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "node src/server.js",
-    "test": "node --test",
-    "build": "echo build-complete",
-    "playwright:test": "node --test test/e2e/smoke.test.js",
-    "pack:local": "npm pack"
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:web\"",
+    "dev:web": "vite --host 0.0.0.0 --port 5173 --strictPort",
+    "dev:server": "tsx watch server/index.ts",
+    "build": "npm run build:web && npm run build:server",
+    "build:web": "vite build",
+    "build:server": "tsc -p tsconfig.node.json && cp -R server/migrations build/server/migrations",
+    "start": "node build/server/index.js",
+    "start:e2e": "node build/server/index.js",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "csv-parse": "^6.1.0",
+    "express": "5.2.1",
+    "express-session": "^1.18.0",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5"
+  },
+  "overrides": {
+    "router": "2.2.0",
+    "path-to-regexp": "8.4.0"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.57.0",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/express": "^5.0.6",
+    "@types/express-session": "^1.18.2",
+    "@types/node": "^25.0.0",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@types/supertest": "^6.0.3",
+    "@vitejs/plugin-react": "^5.1.2",
+    "@vitest/coverage-v8": "^4.0.18",
+    "concurrently": "^9.2.1",
+    "jsdom": "^28.0.0",
+    "supertest": "^7.2.2",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.2",
+    "vitest": "^4.0.18"
   }
 }

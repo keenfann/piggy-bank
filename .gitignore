@@ -1,0 +1,13 @@
+node_modules/
+dist/
+build/
+coverage/
+playwright-report/
+test-results/
+db/
+data/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.tgz
+.DS_Store

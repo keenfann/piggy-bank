@@ -1,0 +1,13 @@
+services:
+  piggy-bank:
+    image: ghcr.io/keenfann/piggy-bank:latest
+    restart: unless-stopped
+    ports:
+      - "4287:4287"
+    environment:
+      PORT: 4287
+      HOST: 0.0.0.0
+      DB_PATH: /data/piggy-bank.sqlite
+      UPLOAD_DIR: /data/uploads
+    volumes:
+      - ./data:/data

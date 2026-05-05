@@ -1,0 +1,95 @@
+import { afterEach, describe, expect, it } from 'vitest';
+import { createTestServer } from '../helpers/api.js';
+
+let server: ReturnType<typeof createTestServer> | null = null;
+
+afterEach(() => {
+  server?.cleanup();
+  server = null;
+});
+
+describe('children and transactions', () => {
+  it('creates children with cash/fund accounts and calculates balances', async () => {
+    server = createTestServer();
+    await server.setupParent();
+    const child = await server.post('/api/children', { name: 'Anna' });
+    expect(child.status).toBe(201);
+    const childId = child.body.child.id;
+
+    expect((await server.post(`/api/children/${childId}/transactions`, {
+      account: 'cash',
+      type: 'deposit',
+      amountOre: 10000,
+      date: '2026-05-05',
+      comment: 'Present',
+    })).status).toBe(201);
+    expect((await server.post(`/api/children/${childId}/transactions`, {
+      account: 'cash',
+      type: 'withdrawal',
+      amountOre: 2500,
+      date: '2026-05-06',
+      comment: 'Köp',
+    })).status).toBe(201);
+
+    await server.agent.get('/api/children').expect(200).expect(({ body }) => {
+      expect(body.children[0].cashBalanceOre).toBe(7500);
+      expect(body.children[0].fundBalanceOre).toBe(0);
+    });
+  });
+
+  it('rejects invalid transaction data', async () => {
+    server = createTestServer();
+    await server.setupParent();
+    const child = await server.post('/api/children', { name: 'Anna' });
+    expect(child.status).toBe(201);
+    const childId = child.body.child.id;
+
+    expect((await server.post(`/api/children/${childId}/transactions`, {
+      account: 'crypto',
+      type: 'deposit',
+      amountOre: 100,
+      date: '2026-05-05',
+      comment: 'x',
+    })).status).toBe(400);
+    expect((await server.post(`/api/children/${childId}/transactions`, {
+      account: 'cash',
+      type: 'deposit',
+      amountOre: -100,
+      date: '2026-05-05',
+      comment: 'x',
+    })).status).toBe(400);
+    expect((await server.post(`/api/children/${childId}/transactions`, {
+      account: 'cash',
+      type: 'unknown',
+      amountOre: 100,
+      date: '2026-99-99',
+      comment: '',
+    })).status).toBe(400);
+  });
+
+  it('scopes child users to their own child and blocks exports', async () => {
+    server = createTestServer();
+    await server.setupParent();
+    const anna = await server.post('/api/children', { name: 'Anna' });
+    const elsa = await server.post('/api/children', { name: 'Elsa' });
+    expect(anna.status).toBe(201);
+    expect(elsa.status).toBe(201);
+    expect((await server.post(`/api/children/${anna.body.child.id}/login`, { username: 'anna', password: 'anna12345' })).status).toBe(201);
+    expect((await server.post('/api/auth/logout', {})).status).toBe(204);
+    expect((await server.post('/api/auth/login', { username: 'anna', password: 'anna12345' })).status).toBe(200);
+
+    await server.agent.get('/api/children').expect(200).expect(({ body }) => {
+      expect(body.children).toHaveLength(1);
+      expect(body.children[0].name).toBe('Anna');
+    });
+    await server.agent.get(`/api/children/${elsa.body.child.id}/transactions`).expect(403);
+    expect((await server.post(`/api/children/${anna.body.child.id}/transactions`, {
+      account: 'cash',
+      type: 'deposit',
+      amountOre: 100,
+      date: '2026-05-05',
+      comment: 'x',
+    })).status).toBe(403);
+    await server.agent.get('/api/export/transactions.csv').expect(403);
+  });
+});

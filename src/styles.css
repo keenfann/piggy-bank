@@ -1,0 +1,322 @@
+:root {
+  color: #17201a;
+  background: #f7faf8;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+button,
+.button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button,
+.button {
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 14px;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.primary {
+  background: #166534;
+  color: #fff;
+}
+
+.secondary {
+  background: #dbeafe;
+  color: #1e3a8a;
+}
+
+.ghost {
+  background: transparent;
+  color: #166534;
+  padding-inline: 8px;
+}
+
+.danger {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.small {
+  min-height: 34px;
+  padding-inline: 10px;
+}
+
+.app-shell {
+  width: min(1120px, 100%);
+  margin: 0 auto;
+  padding: 18px;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin-top: 0;
+}
+
+h1 {
+  margin-bottom: 0;
+  font-size: 1.8rem;
+}
+
+h2 {
+  margin-bottom: 10px;
+}
+
+h3 {
+  margin-bottom: 14px;
+}
+
+.eyebrow {
+  margin-bottom: 4px;
+  color: #52705c;
+  font-size: .78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.panel {
+  background: #fff;
+  border: 1px solid #dfe9e2;
+  border-radius: 8px;
+  padding: 18px;
+  box-shadow: 0 12px 30px rgba(21, 48, 31, .07);
+}
+
+.auth-wrap {
+  display: grid;
+  min-height: 65vh;
+  place-items: center;
+}
+
+.auth {
+  width: min(420px, 100%);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.wide {
+  grid-column: 1 / -1;
+}
+
+.child-hero {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  grid-column: 1 / -1;
+}
+
+.child-hero img,
+.avatar {
+  width: 88px;
+  height: 88px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex: none;
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  background: #bbf7d0;
+  color: #14532d;
+  font-size: 2rem;
+  font-weight: 900;
+}
+
+.balances {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.balance {
+  border: 1px solid #dfe9e2;
+  border-radius: 8px;
+  min-width: 150px;
+  padding: 12px;
+}
+
+.balance span {
+  display: block;
+  color: #52705c;
+  font-size: .88rem;
+}
+
+.balance strong {
+  display: block;
+  font-size: 1.35rem;
+}
+
+label,
+.stack {
+  display: grid;
+  gap: 8px;
+}
+
+.stack {
+  gap: 12px;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  border: 1px solid #cbd8cf;
+  border-radius: 8px;
+  padding: 11px 12px;
+  background: #fff;
+  color: #17201a;
+}
+
+textarea {
+  resize: vertical;
+}
+
+.toolbar,
+.actions,
+.inline-form,
+.user-menu {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.toolbar {
+  margin-bottom: 12px;
+}
+
+.inline-form {
+  margin-bottom: 14px;
+}
+
+.inline-form label {
+  min-width: min(280px, 100%);
+  flex: 1;
+}
+
+.tab {
+  background: #edf7f0;
+  color: #14532d;
+}
+
+.tab.active {
+  background: #166534;
+  color: #fff;
+}
+
+.message {
+  border-radius: 8px;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  font-weight: 700;
+}
+
+.message.error {
+  background: #fee2e2;
+  color: #7f1d1d;
+}
+
+.message.notice {
+  background: #dcfce7;
+  color: #14532d;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+th,
+td {
+  border-bottom: 1px solid #e7eee9;
+  padding: 11px 8px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+th {
+  color: #52705c;
+  font-size: .86rem;
+}
+
+.result {
+  margin-top: 12px;
+  border: 1px solid #dfe9e2;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+@media (max-width: 760px) {
+  .app-shell {
+    padding: 12px;
+  }
+
+  header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .child-hero {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .balances,
+  .balance,
+  .actions,
+  .toolbar,
+  .user-menu {
+    width: 100%;
+  }
+
+  .actions > *,
+  .toolbar > *,
+  .user-menu > * {
+    flex: 1;
+  }
+}
