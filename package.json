@@ -1,0 +1,13 @@
+{
+  "name": "piggy-bank",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test",
+    "build": "echo build-complete",
+    "playwright:test": "node --test test/e2e/smoke.test.js",
+    "pack:local": "npm pack"
+  }
+}
