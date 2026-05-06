@@ -28,16 +28,21 @@ export function App() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [flashMessage, setFlashMessage] = useState<{ type: 'error' | 'notice'; text: string } | null>(null);
   const [appSection, setAppSection] = useState<AppSection>('dashboard');
   const [txModalOpen, setTxModalOpen] = useState(false);
+  const [revealedDeleteId, setRevealedDeleteId] = useState<number | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [setupForm, setSetupForm] = useState({ username: 'parent', password: '' });
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   const [childName, setChildName] = useState('');
   const [txForm, setTxForm] = useState<TxForm>(emptyTxForm());
   const [childLogin, setChildLogin] = useState({ username: '', password: '' });
   const [photoUrl, setPhotoUrl] = useState('');
+  const [photoDataUrl, setPhotoDataUrl] = useState('');
   const [csv, setCsv] = useState('childName,account,type,amountOre,date,comment\n');
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
+  const swipeStartRef = useRef<{ transactionId: number; x: number; y: number } | null>(null);
 
   const selectedChild = useMemo(
     () => children.find((child) => child.id === selectedChildId) || children[0] || null,
@@ -54,8 +59,30 @@ export function App() {
       loadTransactions(selectedChild.id);
       setChildLogin({ username: selectedChild.childLogin?.username || '', password: '' });
       setPhotoUrl(selectedChild.photoUrl || '');
+      setPhotoDataUrl('');
+      resetDeleteAction();
     }
   }, [selectedChild?.id]);
+
+  useEffect(() => {
+    if (!error && !notice) {
+      setFlashMessage(null);
+      return;
+    }
+
+    setFlashMessage({
+      type: error ? 'error' : 'notice',
+      text: error || notice,
+    });
+
+    const timer = setTimeout(() => {
+      setFlashMessage(null);
+      setError('');
+      setNotice('');
+    }, 2200);
+
+    return () => clearTimeout(timer);
+  }, [error, notice]);
 
   useEffect(() => {
     if (!txModalOpen) return;
@@ -185,8 +212,43 @@ export function App() {
       await apiFetch(`/api/transactions/${id}`, { method: 'DELETE' });
       await loadChildren();
       await loadTransactions(selectedChild.id);
+      resetDeleteAction();
       setNotice('Transaktionen togs bort.');
     });
+  }
+
+  function beginTransactionSwipe(transactionId: number, event: React.PointerEvent<HTMLTableRowElement>) {
+    if (event.pointerType === 'mouse') return;
+    swipeStartRef.current = { transactionId, x: event.clientX, y: event.clientY };
+  }
+
+  function finishTransactionSwipe(event: React.PointerEvent<HTMLTableRowElement>) {
+    const swipeStart = swipeStartRef.current;
+    swipeStartRef.current = null;
+    if (!swipeStart) return;
+
+    const deltaX = event.clientX - swipeStart.x;
+    const deltaY = event.clientY - swipeStart.y;
+    if (deltaX > 56 && Math.abs(deltaY) < 40) {
+      setRevealedDeleteId(swipeStart.transactionId);
+      setConfirmDeleteId(null);
+    } else if (deltaX < -32 && Math.abs(deltaY) < 40) {
+      resetDeleteAction();
+    }
+  }
+
+  async function requestTransactionDelete(id: number) {
+    if (confirmDeleteId === id) {
+      await deleteTransaction(id);
+      return;
+    }
+    setRevealedDeleteId(id);
+    setConfirmDeleteId(id);
+  }
+
+  function resetDeleteAction() {
+    setRevealedDeleteId(null);
+    setConfirmDeleteId(null);
   }
 
   async function saveChildLogin(event: FormEvent) {
@@ -205,14 +267,50 @@ export function App() {
   async function savePhoto(event: FormEvent) {
     event.preventDefault();
     if (!selectedChild) return;
+    const payload: { photoDataUrl?: string; photoUrl?: string } = {};
+    if (photoDataUrl) {
+      payload.photoDataUrl = photoDataUrl;
+    } else if (photoUrl) {
+      payload.photoUrl = photoUrl;
+    }
     await run(async () => {
       await apiFetch(`/api/children/${selectedChild.id}/photo`, {
         method: 'POST',
-        body: JSON.stringify({ photoUrl }),
+        body: JSON.stringify(payload),
       });
+      setPhotoUrl('');
+      setPhotoDataUrl('');
       await loadChildren();
       setNotice('Bilden sparades.');
     });
+  }
+
+  function handlePhotoFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0] || null;
+    if (!file) {
+      setPhotoDataUrl('');
+      return;
+    }
+    if (!file.type.startsWith('image/')) {
+      setError('Filen måste vara en bild.');
+      return;
+    }
+    if (!['image/png', 'image/jpeg', 'image/webp', 'image/jpg'].includes(file.type)) {
+      setError('Tillåtna bildformat: PNG, JPEG, JPG och WEBP.');
+      return;
+    }
+    if (file.size > 2_000_000) {
+      setError('Bilden får vara högst 2 MB.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setPhotoDataUrl(reader.result);
+      }
+    };
+    reader.onerror = () => setError('Kunde inte läsa bilden.');
+    reader.readAsDataURL(file);
   }
 
   async function validateImport() {
@@ -260,7 +358,7 @@ export function App() {
           <TextInput label="Användarnamn" value={setupForm.username} onChange={(value) => setSetupForm({ ...setupForm, username: value })} />
           <TextInput label="Lösenord" type="password" value={setupForm.password} onChange={(value) => setSetupForm({ ...setupForm, password: value })} />
           <button className="primary">Kom igång</button>
-          <Message error={error} notice={notice} />
+          <Message message={flashMessage} />
         </AuthPanel>
       </Shell>
     );
@@ -272,7 +370,7 @@ export function App() {
           <TextInput label="Användarnamn" value={loginForm.username} onChange={(value) => setLoginForm({ ...loginForm, username: value })} />
           <TextInput label="Lösenord" type="password" value={loginForm.password} onChange={(value) => setLoginForm({ ...loginForm, password: value })} />
           <button className="primary">Logga in</button>
-          <Message error={error} notice={notice} />
+          <Message message={flashMessage} />
         </AuthPanel>
       </Shell>
     );
@@ -281,8 +379,23 @@ export function App() {
   const isParent = user?.role === 'parent';
 
   return (
-    <Shell user={user} onLogout={logout} onOpenSettings={() => setAppSection('settings')}>
-      <Message error={error} notice={notice} />
+    <Shell
+      user={user}
+      onLogout={logout}
+      onOpenSettings={() => setAppSection('settings')}
+      headerAction={isParent && selectedChild ? (
+        <button
+          className="icon-button primary"
+          type="button"
+          aria-label="Ny transaktion"
+          title="Ny transaktion"
+          onClick={() => setTxModalOpen(true)}
+        >
+          +
+        </button>
+      ) : null}
+      >
+      <Message message={flashMessage} />
       {appSection === 'settings' ? (
         <>
           <div className="view-heading">
@@ -330,7 +443,18 @@ export function App() {
                     <section className="panel">
                       <h3>Bild</h3>
                       <form className="stack" onSubmit={savePhoto}>
-                        <TextInput label="Bild-URL" value={photoUrl} onChange={setPhotoUrl} />
+                        <label>
+                          Ladda upp bild
+                          <input
+                            type="file"
+                            accept="image/png,image/jpeg,image/jpg,image/webp"
+                            onChange={handlePhotoFileChange}
+                          />
+                        </label>
+                        {photoDataUrl && (
+                          <img className="photo-preview" src={photoDataUrl} alt="Förhandsvisning av vald bild" />
+                        )}
+                        <TextInput label="Bild-URL (valfritt)" value={photoUrl} onChange={setPhotoUrl} />
                         <button className="secondary">Spara bild</button>
                       </form>
                     </section>
@@ -382,25 +506,11 @@ export function App() {
             ))}
           </section>
 
-          {isParent && selectedChild && (
-            <div className="dashboard-actions">
-              <button
-                className="icon-button primary"
-                type="button"
-                aria-label="Ny transaktion"
-                title="Ny transaktion"
-                onClick={() => setTxModalOpen(true)}
-              >
-                +
-              </button>
-            </div>
-          )}
-
           {selectedChild ? (
             <main className="grid">
               <section className="panel child-hero">
                 {selectedChild.photoUrl ? <img src={selectedChild.photoUrl} alt="" /> : <div className="avatar">{selectedChild.name.slice(0, 1).toUpperCase()}</div>}
-                <div>
+                <div className="child-summary">
                   <p className="eyebrow">Sparkonto</p>
                   <h2>{selectedChild.name}</h2>
                   <div className="balances">
@@ -420,23 +530,49 @@ export function App() {
                         <th>Konto</th>
                         <th>Typ</th>
                         <th>Belopp</th>
-                        {isParent && <th></th>}
+                        {isParent && <th className="action-column"></th>}
                       </tr>
                     </thead>
                     <tbody>
-                      {transactions.map((tx) => (
-                        <tr key={tx.id}>
-                          <td>{tx.date}</td>
-                          <td>{accountLabel(tx.account_type)}</td>
-                          <td>{tx.type === 'deposit' ? 'Insättning' : 'Uttag'}</td>
-                          <td>{formatSek(tx.amount_ore)}</td>
-                          {isParent && (
-                            <td>
-                              <button className="danger small" onClick={() => deleteTransaction(tx.id)}>Ta bort</button>
-                            </td>
-                          )}
-                        </tr>
-                      ))}
+                      {transactions.map((tx) => {
+                        const isDeleteRevealed = revealedDeleteId === tx.id;
+                        const isDeleteConfirming = confirmDeleteId === tx.id;
+                        return (
+                          <tr
+                            key={tx.id}
+                            className={[
+                              'transaction-row',
+                              isDeleteRevealed ? 'action-revealed' : '',
+                              isDeleteConfirming ? 'delete-confirming' : '',
+                            ].filter(Boolean).join(' ')}
+                            onPointerDown={(event) => {
+                              if (isParent) beginTransactionSwipe(tx.id, event);
+                            }}
+                            onPointerUp={(event) => {
+                              if (isParent) finishTransactionSwipe(event);
+                            }}
+                            onPointerCancel={() => {
+                              swipeStartRef.current = null;
+                            }}
+                          >
+                            <td>{tx.date}</td>
+                            <td>{accountLabel(tx.account_type)}</td>
+                            <td>{tx.type === 'deposit' ? 'Insättning' : 'Uttag'}</td>
+                            <td>{formatSek(tx.amount_ore)}</td>
+                            {isParent && (
+                              <td className="table-action">
+                                <button
+                                  className="row-delete small"
+                                  aria-label={isDeleteConfirming ? 'Bekräfta borttagning' : 'Ta bort transaktion'}
+                                  onClick={() => requestTransactionDelete(tx.id)}
+                                >
+                                  {isDeleteConfirming ? 'Bekräfta' : 'Ta bort'}
+                                </button>
+                              </td>
+                            )}
+                          </tr>
+                        );
+                      })}
                       {!transactions.length && (
                         <tr>
                           <td colSpan={isParent ? 5 : 4}>Inga transaktioner ännu.</td>
@@ -508,11 +644,13 @@ function Shell({
   user,
   onLogout,
   onOpenSettings,
+  headerAction,
 }: {
   children: React.ReactNode;
   user?: User | null;
   onLogout?: () => void;
   onOpenSettings?: () => void;
+  headerAction?: React.ReactNode;
 }) {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -543,41 +681,45 @@ function Shell({
   return (
     <div className="app-shell">
       <header>
-        <div>
-          <p className="eyebrow">Piggy Bank</p>
+        <p className="eyebrow">Piggy Bank</p>
+        <div className="title-row">
           <h1>Sparkonto Barn</h1>
-        </div>
-        {user && (
-          <div className="user-menu" ref={userMenuRef}>
-            <button
-              className="user-menu-trigger"
-              type="button"
-              aria-haspopup="menu"
-              aria-expanded={userMenuOpen}
-              onClick={() => setUserMenuOpen((open) => !open)}
-            >
-              {user.username}
-            </button>
-            {userMenuOpen && (
-              <div className="user-popover" role="menu">
+          {user && (
+            <div className="header-controls">
+              {headerAction}
+              <div className="user-menu" ref={userMenuRef}>
                 <button
-                  className="menu-item"
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    setUserMenuOpen(false);
-                    onOpenSettings?.();
-                  }}
-                >
-                  Inställningar
-                </button>
-                <button className="menu-item" type="button" role="menuitem" onClick={onLogout}>
-                  Logga ut
-                </button>
+                    className="icon-button user-menu-trigger"
+                    type="button"
+                    aria-haspopup="menu"
+                    aria-expanded={userMenuOpen}
+                    onClick={() => setUserMenuOpen((open) => !open)}
+                    aria-label={`Användare ${user.username}`}
+                  >
+                    {user.username ? user.username.charAt(0).toUpperCase() : ''}
+                  </button>
+                {userMenuOpen && (
+                  <div className="user-popover" role="menu">
+                    <button
+                      className="menu-item"
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setUserMenuOpen(false);
+                        onOpenSettings?.();
+                      }}
+                    >
+                      Inställningar
+                    </button>
+                    <button className="menu-item" type="button" role="menuitem" onClick={onLogout}>
+                      Logga ut
+                    </button>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        )}
+            </div>
+          )}
+        </div>
       </header>
       {children}
     </div>
@@ -625,9 +767,16 @@ function Balance({ label, amountOre }: { label: string; amountOre: number }) {
   );
 }
 
-function Message({ error, notice }: { error: string; notice: string }) {
-  if (!error && !notice) return null;
-  return <div className={error ? 'message error' : 'message notice'}>{error || notice}</div>;
+function Message({ message }: { message: { type: 'error' | 'notice'; text: string } | null }) {
+  if (!message) return null;
+  return (
+    <div
+      className={`message-popover ${message.type}`}
+      role={message.type === 'error' ? 'alert' : 'status'}
+    >
+      {message.text}
+    </div>
+  );
 }
 
 function accountLabel(account: AccountType): string {
