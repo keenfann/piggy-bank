@@ -12,7 +12,7 @@ test('first-run setup, parent transaction, child scoping, and import', async ({ 
   await expect(page.getByRole('heading', { name: 'Hantera appen' })).toBeVisible();
   await page.getByLabel('Nytt barn').fill('Anna');
   await page.getByRole('button', { name: 'Lägg till' }).click();
-  await expect(page.getByRole('heading', { name: 'Anna' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Anna' })).toBeVisible();
 
   await page.getByLabel('Belopp (kr)').fill('100');
   await page.getByLabel('Kommentar').fill('Present');
