@@ -118,10 +118,23 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: docker_publish
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - name: Create GitHub release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ needs.docker_publish.outputs.release_version }}
-          name: Release v${{ needs.docker_publish.outputs.release_version }}
-          generate_release_notes: true
+      - name: Create release if missing
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: v${{ needs.docker_publish.outputs.release_version }}
+        shell: bash
+        run: |
+          if gh release view "$RELEASE_TAG" --repo "$GH_REPO" >/dev/null 2>&1; then
+            echo "Release '$RELEASE_TAG' already exists."
+            exit 0
+          fi
+
+          gh release create "$RELEASE_TAG" \
+            --repo "$GH_REPO" \
+            --target "${GITHUB_SHA}" \
+            --title "$RELEASE_TAG" \
+            --generate-notes
