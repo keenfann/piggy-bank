@@ -36,7 +36,7 @@ test('first-run setup, parent transaction, child scoping, and import', async ({ 
   await page.getByRole('button', { name: 'Validera' }).click();
   await expect(page.getByText('1 giltiga rader')).toBeVisible();
   await page.getByRole('button', { name: 'Importera' }).click();
-  await expect(page.getByText('25,00 kr').first()).toBeVisible();
+  await expect(page.getByText('1 rader importerades.')).toBeVisible();
 
   await page.getByRole('button', { name: 'Till översikt' }).click();
   await expect(page.getByRole('heading', { name: 'Sparkonto Barn' })).toBeVisible();
