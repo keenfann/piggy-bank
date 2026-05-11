@@ -458,7 +458,7 @@ export function App() {
                   <section className="panel">Skapa ett barn för att hantera barninställningar.</section>
                 )}
 
-                <section className="panel wide">
+                <section className="panel wide import-export-panel">
                   <h3>Import och export</h3>
                   <div className="actions">
                     <a className="button secondary" href="/api/export.json">Exportera JSON</a>

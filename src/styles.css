@@ -928,6 +928,31 @@ tbody tr:hover {
   margin-bottom: 0;
 }
 
+.import-export-panel {
+  display: grid;
+  gap: 20px;
+}
+
+.import-export-panel h3 {
+  margin-bottom: 0;
+}
+
+.import-export-panel label {
+  gap: 12px;
+}
+
+.import-export-panel .actions {
+  gap: 14px;
+}
+
+.import-export-panel textarea {
+  min-height: 168px;
+}
+
+.import-export-panel label + .actions {
+  margin-top: 6px;
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;
