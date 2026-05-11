@@ -205,13 +205,22 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
     const validation = validateTransactionInput(db, child.id, req.body);
     if ('error' in validation) return res.status(400).json({ error: validation.error });
     const now = nowIso();
-    const result = db
-      .prepare(
-        `INSERT INTO transactions (account_id, type, amount_ore, date, comment, created_by_user_id, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-      )
-      .run(validation.account.id, validation.type, validation.amountOre, validation.date, validation.comment, requireCurrentUser(db, req).id, now, now);
-    return res.status(201).json({ transaction: getTransaction(db, Number(result.lastInsertRowid)) });
+    const insert = db.prepare(
+      `INSERT INTO transactions (account_id, type, amount_ore, date, comment, created_by_user_id, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+    );
+    let transactionId = 0;
+    db.exec('BEGIN;');
+    try {
+      const result = insert.run(validation.account.id, validation.type, validation.amountOre, validation.date, validation.comment, requireCurrentUser(db, req).id, now, now);
+      transactionId = Number(result.lastInsertRowid);
+      recalculateAccountBalances(db, validation.account.id);
+      db.exec('COMMIT;');
+    } catch (error) {
+      db.exec('ROLLBACK;');
+      throw error;
+    }
+    return res.status(201).json({ transaction: getTransaction(db, transactionId) });
   });
 
   app.patch('/api/transactions/:id', requireParent(db), (req, res) => {
@@ -219,21 +228,41 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
     if (!existing) return res.status(404).json({ error: 'Transaktion hittades inte' });
     const validation = validateTransactionInput(db, existing.child_id, req.body);
     if ('error' in validation) return res.status(400).json({ error: validation.error });
-    db.prepare('UPDATE transactions SET account_id = ?, type = ?, amount_ore = ?, date = ?, comment = ?, updated_at = ? WHERE id = ?').run(
-      validation.account.id,
-      validation.type,
-      validation.amountOre,
-      validation.date,
-      validation.comment,
-      nowIso(),
-      existing.id
-    );
+    db.exec('BEGIN;');
+    try {
+      db.prepare('UPDATE transactions SET account_id = ?, type = ?, amount_ore = ?, date = ?, comment = ?, updated_at = ? WHERE id = ?').run(
+        validation.account.id,
+        validation.type,
+        validation.amountOre,
+        validation.date,
+        validation.comment,
+        nowIso(),
+        existing.id
+      );
+      recalculateAccountBalances(db, existing.account_id);
+      if (validation.account.id !== existing.account_id) {
+        recalculateAccountBalances(db, validation.account.id);
+      }
+      db.exec('COMMIT;');
+    } catch (error) {
+      db.exec('ROLLBACK;');
+      throw error;
+    }
     return res.json({ transaction: getTransaction(db, existing.id) });
   });
 
   app.delete('/api/transactions/:id', requireParent(db), (req, res) => {
-    const result = db.prepare('DELETE FROM transactions WHERE id = ?').run(Number(req.params.id));
-    if (!result.changes) return res.status(404).json({ error: 'Transaktion hittades inte' });
+    const existing = getTransaction(db, Number(req.params.id));
+    if (!existing) return res.status(404).json({ error: 'Transaktion hittades inte' });
+    db.exec('BEGIN;');
+    try {
+      db.prepare('DELETE FROM transactions WHERE id = ?').run(existing.id);
+      recalculateAccountBalances(db, existing.account_id);
+      db.exec('COMMIT;');
+    } catch (error) {
+      db.exec('ROLLBACK;');
+      throw error;
+    }
     return res.status(204).end();
   });
 
@@ -277,11 +306,16 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
     );
     db.exec('BEGIN;');
     try {
+      const affectedAccountIds = new Set<number>();
       for (const row of validation.validRows) {
         const account = findAccount(db, row.childId, row.account);
         if (!account) throw new Error(`Konto saknas för rad ${row.row}`);
         const now = nowIso();
         insert.run(account.id, row.type, row.amountOre, row.date, row.comment, user.id, now, now);
+        affectedAccountIds.add(account.id);
+      }
+      for (const accountId of affectedAccountIds) {
+        recalculateAccountBalances(db, accountId);
       }
       db.exec('COMMIT;');
     } catch (error) {
@@ -378,6 +412,7 @@ function listTransactions(db: AppDb, childId: number, accountType: AccountType |
            a.type AS account_type,
            t.type,
            t.amount_ore,
+           t.balance_ore,
            t.date,
            t.comment,
            t.created_by_user_id,
@@ -400,6 +435,7 @@ function getTransaction(db: AppDb, id: number): TransactionRow | undefined {
               a.type AS account_type,
               t.type,
               t.amount_ore,
+              t.balance_ore,
               t.date,
               t.comment,
               t.created_by_user_id,
@@ -410,6 +446,25 @@ function getTransaction(db: AppDb, id: number): TransactionRow | undefined {
        WHERE t.id = ?`
     )
     .get<TransactionRow>(id);
+}
+
+function recalculateAccountBalances(db: AppDb, accountId: number): void {
+  db.prepare(
+    `WITH running_balances AS (
+       SELECT id,
+              SUM(CASE WHEN type = 'deposit' THEN amount_ore ELSE -amount_ore END)
+                OVER (ORDER BY date ASC, id ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS balance_ore
+       FROM transactions
+       WHERE account_id = ?
+     )
+     UPDATE transactions
+     SET balance_ore = (
+       SELECT running_balances.balance_ore
+       FROM running_balances
+       WHERE running_balances.id = transactions.id
+     )
+     WHERE account_id = ?`
+  ).run(accountId, accountId);
 }
 
 function findAccount(db: AppDb, childId: number, type: AccountType): AccountRow | undefined {
@@ -516,8 +571,29 @@ function must<T>(value: T | undefined | null): T {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const app = createApp();
+  const db = createDatabase();
+  const app = createApp({ db });
   const port = Number(process.env.PORT) || 4287;
   const host = process.env.HOST || '0.0.0.0';
-  app.listen(port, host, () => console.log(`Piggy Bank kör på http://${host}:${port}`));
+  const server = app.listen(port, host, () => console.log(`Piggy Bank kör på http://${host}:${port}`));
+  let isShuttingDown = false;
+
+  const shutdown = (signal: NodeJS.Signals) => {
+    if (isShuttingDown) return;
+    isShuttingDown = true;
+    server.close((error) => {
+      try {
+        db.close();
+      } finally {
+        if (error) {
+          console.error(`Kunde inte stänga servern efter ${signal}.`, error);
+          process.exitCode = 1;
+        }
+        process.exit();
+      }
+    });
+  };
+
+  process.once('SIGINT', shutdown);
+  process.once('SIGTERM', shutdown);
 }

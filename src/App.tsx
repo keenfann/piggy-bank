@@ -19,18 +19,21 @@ const emptyTxForm = (): TxForm => ({
   date: new Date().toISOString().slice(0, 10),
   comment: '',
 });
+const TRANSACTION_SAVE_TIMEOUT_MS = 6_000;
 
 export function App() {
   const [view, setView] = useState<ViewState>('loading');
   const [user, setUser] = useState<User | null>(null);
   const [children, setChildren] = useState<Child[]>([]);
   const [selectedChildId, setSelectedChildId] = useState<number | null>(null);
+  const [selectedAccount, setSelectedAccount] = useState<AccountType>('cash');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [flashMessage, setFlashMessage] = useState<{ type: 'error' | 'notice'; text: string } | null>(null);
   const [appSection, setAppSection] = useState<AppSection>('dashboard');
   const [txModalOpen, setTxModalOpen] = useState(false);
+  const [savingTransaction, setSavingTransaction] = useState(false);
   const [revealedDeleteId, setRevealedDeleteId] = useState<number | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [setupForm, setSetupForm] = useState({ username: 'parent', password: '' });
@@ -38,7 +41,6 @@ export function App() {
   const [childName, setChildName] = useState('');
   const [txForm, setTxForm] = useState<TxForm>(emptyTxForm());
   const [childLogin, setChildLogin] = useState({ username: '', password: '' });
-  const [photoUrl, setPhotoUrl] = useState('');
   const [photoDataUrl, setPhotoDataUrl] = useState('');
   const [csv, setCsv] = useState('childName,account,type,amountOre,date,comment\n');
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
@@ -56,13 +58,12 @@ export function App() {
   useEffect(() => {
     if (selectedChild) {
       setSelectedChildId(selectedChild.id);
-      loadTransactions(selectedChild.id);
+      loadTransactions(selectedChild.id, selectedAccount);
       setChildLogin({ username: selectedChild.childLogin?.username || '', password: '' });
-      setPhotoUrl(selectedChild.photoUrl || '');
       setPhotoDataUrl('');
       resetDeleteAction();
     }
-  }, [selectedChild?.id]);
+  }, [selectedChild?.id, selectedAccount]);
 
   useEffect(() => {
     if (!error && !notice) {
@@ -86,6 +87,7 @@ export function App() {
 
   useEffect(() => {
     if (!txModalOpen) return;
+    setSavingTransaction(false);
 
     function closeTransactionModal(event: KeyboardEvent) {
       if (event.key === 'Escape') {
@@ -96,6 +98,15 @@ export function App() {
     document.addEventListener('keydown', closeTransactionModal);
     return () => document.removeEventListener('keydown', closeTransactionModal);
   }, [txModalOpen]);
+
+  useEffect(() => {
+    if (!savingTransaction) return;
+    const timer = setTimeout(() => {
+      setSavingTransaction(false);
+      setError('Sparandet tog för lång tid. Försök igen.');
+    }, TRANSACTION_SAVE_TIMEOUT_MS + 500);
+    return () => clearTimeout(timer);
+  }, [savingTransaction]);
 
   async function bootstrap() {
     try {
@@ -125,8 +136,8 @@ export function App() {
     setSelectedChildId((current) => current || data.children[0]?.id || null);
   }
 
-  async function loadTransactions(childId: number) {
-    const data = await apiFetch<{ transactions: Transaction[] }>(`/api/children/${childId}/transactions`);
+  async function loadTransactions(childId: number, account = selectedAccount) {
+    const data = await apiFetch<{ transactions: Transaction[] }>(`/api/children/${childId}/transactions?account=${account}`);
     setTransactions(data.transactions);
   }
 
@@ -163,8 +174,10 @@ export function App() {
       setUser(null);
       setChildren([]);
       setTransactions([]);
+      setSelectedAccount('cash');
       setAppSection('dashboard');
       setTxModalOpen(false);
+      setSavingTransaction(false);
       setView('login');
       await ensureCsrf();
     });
@@ -186,24 +199,38 @@ export function App() {
 
   async function addTransaction(event: FormEvent) {
     event.preventDefault();
-    if (!selectedChild) return;
-    await run(async () => {
-      await apiFetch(`/api/children/${selectedChild.id}/transactions`, {
-        method: 'POST',
-        body: JSON.stringify({
-          account: txForm.account,
-          type: txForm.type,
-          amountOre: Math.round(Number(txForm.amount) * 100),
-          date: txForm.date,
-          comment: txForm.comment,
-        }),
+    if (!selectedChild || savingTransaction) return;
+    setSavingTransaction(true);
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), TRANSACTION_SAVE_TIMEOUT_MS);
+    try {
+      await run(async () => {
+        await apiFetch(`/api/children/${selectedChild.id}/transactions`, {
+          method: 'POST',
+          signal: controller.signal,
+          body: JSON.stringify({
+            account: txForm.account,
+            type: txForm.type,
+            amountOre: Math.round(Number(txForm.amount) * 100),
+            date: txForm.date,
+            comment: txForm.comment,
+          }),
+        });
+        setTxForm(emptyTxForm());
+        const [childrenData, transactionsData] = await Promise.all([
+          apiFetch<{ children: Child[] }>('/api/children', { signal: controller.signal }),
+          apiFetch<{ transactions: Transaction[] }>(`/api/children/${selectedChild.id}/transactions?account=${selectedAccount}`, { signal: controller.signal }),
+        ]);
+        setChildren(childrenData.children);
+        setSelectedChildId((current) => current || childrenData.children[0]?.id || null);
+        setTransactions(transactionsData.transactions);
+        setTxModalOpen(false);
+        setNotice('Transaktionen sparades.');
       });
-      setTxForm(emptyTxForm());
-      await loadChildren();
-      await loadTransactions(selectedChild.id);
-      setTxModalOpen(false);
-      setNotice('Transaktionen sparades.');
-    });
+    } finally {
+      window.clearTimeout(timeout);
+      setSavingTransaction(false);
+    }
   }
 
   async function deleteTransaction(id: number) {
@@ -267,18 +294,15 @@ export function App() {
   async function savePhoto(event: FormEvent) {
     event.preventDefault();
     if (!selectedChild) return;
-    const payload: { photoDataUrl?: string; photoUrl?: string } = {};
+    const payload: { photoDataUrl?: string } = {};
     if (photoDataUrl) {
       payload.photoDataUrl = photoDataUrl;
-    } else if (photoUrl) {
-      payload.photoUrl = photoUrl;
     }
     await run(async () => {
       await apiFetch(`/api/children/${selectedChild.id}/photo`, {
         method: 'POST',
         body: JSON.stringify(payload),
       });
-      setPhotoUrl('');
       setPhotoDataUrl('');
       await loadChildren();
       setNotice('Bilden sparades.');
@@ -377,16 +401,30 @@ export function App() {
   }
 
   const isParent = user?.role === 'parent';
+  const showChildPicker = children.length > 0 && (appSection === 'dashboard' || isParent);
+  const childPicker = showChildPicker ? (
+    <section className="toolbar child-picker" aria-label="Barn">
+      {children.map((child) => (
+        <button
+          key={child.id}
+          className={child.id === selectedChild?.id ? 'tab child-tab active' : 'tab child-tab'}
+          onClick={() => setSelectedChildId(child.id)}
+        >
+          <ChildAvatar child={child} size="small" />
+          <span>{child.name}</span>
+        </button>
+      ))}
+    </section>
+  ) : null;
 
   return (
     <Shell
       user={user}
       onLogout={logout}
-      appSection={appSection}
       onNavigate={setAppSection}
       headerAction={isParent && selectedChild ? (
         <button
-          className="icon-button primary"
+          className="icon-button add-transaction-button"
           type="button"
           aria-label="Ny transaktion"
           title="Ny transaktion"
@@ -397,6 +435,7 @@ export function App() {
       ) : null}
       >
       <Message message={flashMessage} />
+      {childPicker}
       {appSection === 'settings' ? (
         <>
           <div className="view-heading">
@@ -408,23 +447,10 @@ export function App() {
 
           {isParent ? (
             <>
-              <section className="toolbar" aria-label="Barn">
-                {children.map((child) => (
-                  <button
-                    key={child.id}
-                    className={child.id === selectedChild?.id ? 'tab child-tab active' : 'tab child-tab'}
-                    onClick={() => setSelectedChildId(child.id)}
-                  >
-                    <ChildAvatar child={child} size="small" />
-                    <span>{child.name}</span>
-                  </button>
-                ))}
-              </section>
-
               <main className="grid">
-                <section className="panel">
+                <section className="panel add-child-panel">
                   <h3>Barn</h3>
-                  <form className="stack" onSubmit={addChild}>
+                  <form className="stack add-child-form" onSubmit={addChild}>
                     <TextInput label="Nytt barn" value={childName} onChange={setChildName} />
                     <button className="secondary">Lägg till</button>
                   </form>
@@ -455,7 +481,6 @@ export function App() {
                         {photoDataUrl && (
                           <img className="photo-preview" src={photoDataUrl} alt="Förhandsvisning av vald bild" />
                         )}
-                        <TextInput label="Bild-URL (valfritt)" value={photoUrl} onChange={setPhotoUrl} />
                         <button className="secondary">Spara bild</button>
                       </form>
                     </section>
@@ -464,12 +489,8 @@ export function App() {
                   <section className="panel">Skapa ett barn för att hantera barninställningar.</section>
                 )}
 
-                <section className="panel wide">
-                  <h3>Import och export</h3>
-                  <div className="actions">
-                    <a className="button secondary" href="/api/export.json">Exportera JSON</a>
-                    <a className="button secondary" href="/api/export/transactions.csv">Exportera CSV</a>
-                  </div>
+                <section className="panel wide import-export-panel">
+                  <h3>Import</h3>
                   <label>
                     CSV-import
                     <textarea value={csv} onChange={(event) => setCsv(event.target.value)} rows={7} />
@@ -502,43 +523,42 @@ export function App() {
             </div>
           </div>
 
-          <section className="toolbar" aria-label="Barn">
-            {children.map((child) => (
-              <button
-                key={child.id}
-                className={child.id === selectedChild?.id ? 'tab child-tab active' : 'tab child-tab'}
-                onClick={() => setSelectedChildId(child.id)}
-              >
-                <ChildAvatar child={child} size="small" />
-                <span>{child.name}</span>
-              </button>
-            ))}
-          </section>
-
           {selectedChild ? (
             <main className="grid">
-              <section className="panel child-hero">
-                <ChildAvatar child={selectedChild} size="large" />
+              <section
+                className={selectedChild.photoUrl ? 'panel child-hero has-photo' : 'panel child-hero'}
+                data-initial={selectedChild.name.slice(0, 1).toUpperCase()}
+                style={selectedChild.photoUrl ? ({ '--child-hero-photo': `url("${selectedChild.photoUrl}")` } as React.CSSProperties) : undefined}
+              >
                 <div className="child-summary">
-                  <p className="eyebrow">Sparkonto</p>
-                  <h2>{selectedChild.name}</h2>
                   <div className="balances">
-                    <Balance label="Kontant" amountOre={selectedChild.cashBalanceOre} />
-                    <Balance label="Fond" amountOre={selectedChild.fundBalanceOre} />
+                    <Balance
+                      account="cash"
+                      label="Kontant"
+                      amountOre={selectedChild.cashBalanceOre}
+                      active={selectedAccount === 'cash'}
+                      onSelect={setSelectedAccount}
+                    />
+                    <Balance
+                      account="fund"
+                      label="Fond"
+                      amountOre={selectedChild.fundBalanceOre}
+                      active={selectedAccount === 'fund'}
+                      onSelect={setSelectedAccount}
+                    />
                   </div>
                 </div>
               </section>
 
               <section className="panel wide">
-                <h3>Historik</h3>
+                <h3>{selectedAccount === 'cash' ? 'Kontanthistorik' : 'Fondhistorik'}</h3>
                 <div className="table-wrap">
                   <table>
                     <thead>
                       <tr>
                         <th>Datum</th>
-                        <th>Konto</th>
-                        <th>Typ</th>
                         <th>Belopp</th>
+                        <th>Saldo</th>
                         {isParent && <th className="action-column"></th>}
                       </tr>
                     </thead>
@@ -565,13 +585,8 @@ export function App() {
                             }}
                           >
                             <td>{tx.date}</td>
-                            <td>{accountLabel(tx.account_type)}</td>
-                            <td>
-                              <span className={`tx-type ${tx.type}`}>
-                                {tx.type === 'deposit' ? 'Insättning' : 'Uttag'}
-                              </span>
-                            </td>
-                            <td className={`amount ${tx.type}`}>{formatSek(tx.amount_ore)}</td>
+                            <td className={`amount ${tx.type}`}>{formatTransactionAmount(tx)}</td>
+                            <td className="balance-cell">{formatSek(tx.balance_ore)}</td>
                             {isParent && (
                               <td className="table-action">
                                 <button
@@ -588,7 +603,7 @@ export function App() {
                       })}
                       {!transactions.length && (
                         <tr>
-                          <td colSpan={isParent ? 5 : 4}>Inga transaktioner ännu.</td>
+                          <td colSpan={isParent ? 4 : 3}>Inga transaktioner för {selectedAccount === 'cash' ? 'kontantkontot' : 'fondkontot'} ännu.</td>
                         </tr>
                       )}
                     </tbody>
@@ -600,53 +615,45 @@ export function App() {
             <section className="panel">Öppna inställningar för att skapa ett barn.</section>
           )}
 
-          {isParent && selectedChild && txModalOpen && (
-            <div className="modal-backdrop" role="presentation" onClick={() => setTxModalOpen(false)}>
-              <section
-                className="panel modal"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="transaction-modal-title"
-                onClick={(event) => event.stopPropagation()}
-              >
-                <div className="modal-heading">
-                  <h3 id="transaction-modal-title">Ny transaktion</h3>
-                  <button
-                    className="ghost small"
-                    type="button"
-                    aria-label="Stäng"
-                    onClick={() => setTxModalOpen(false)}
-                  >
-                    Stäng
-                  </button>
-                </div>
-                <form className="stack" onSubmit={addTransaction}>
-                  <label>
-                    Konto
-                    <select value={txForm.account} onChange={(event) => setTxForm({ ...txForm, account: event.target.value as AccountType })}>
-                      <option value="cash">Kontant</option>
-                      <option value="fund">Fond</option>
-                    </select>
-                  </label>
-                  <label>
-                    Typ
-                    <select value={txForm.type} onChange={(event) => setTxForm({ ...txForm, type: event.target.value as TransactionType })}>
-                      <option value="deposit">Insättning</option>
-                      <option value="withdrawal">Uttag</option>
-                    </select>
-                  </label>
-                  <TextInput label="Belopp (kr)" inputMode="decimal" value={txForm.amount} onChange={(value) => setTxForm({ ...txForm, amount: value })} />
-                  <TextInput label="Datum" type="date" value={txForm.date} onChange={(value) => setTxForm({ ...txForm, date: value })} />
-                  <TextInput label="Kommentar" value={txForm.comment} onChange={(value) => setTxForm({ ...txForm, comment: value })} />
-                  <div className="actions">
-                    <button className="secondary" type="button" onClick={() => setTxModalOpen(false)}>Avbryt</button>
-                    <button className="primary">Spara</button>
-                  </div>
-                </form>
-              </section>
-            </div>
-          )}
         </>
+      )}
+      {isParent && selectedChild && txModalOpen && (
+        <div className="modal-backdrop" role="presentation" onClick={() => setTxModalOpen(false)}>
+          <section
+            className="panel modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="transaction-modal-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="modal-heading">
+              <h3 id="transaction-modal-title">Ny transaktion</h3>
+            </div>
+            <form className="stack" onSubmit={addTransaction} aria-busy={savingTransaction}>
+              <label>
+                Typ
+                <select value={txForm.type} onChange={(event) => setTxForm({ ...txForm, type: event.target.value as TransactionType })}>
+                  <option value="deposit">Insättning</option>
+                  <option value="withdrawal">Uttag</option>
+                </select>
+              </label>
+              <label>
+                Konto
+                <select value={txForm.account} onChange={(event) => setTxForm({ ...txForm, account: event.target.value as AccountType })}>
+                  <option value="cash">Kontant</option>
+                  <option value="fund">Fond</option>
+                </select>
+              </label>
+              <TextInput label="Belopp (kr)" inputMode="decimal" value={txForm.amount} onChange={(value) => setTxForm({ ...txForm, amount: value })} />
+              <TextInput label="Datum" type="date" value={txForm.date} onChange={(value) => setTxForm({ ...txForm, date: value })} />
+              <TextInput label="Kommentar" value={txForm.comment} onChange={(value) => setTxForm({ ...txForm, comment: value })} />
+              <div className="actions">
+                <button className="secondary" type="button" onClick={() => setTxModalOpen(false)}>Avbryt</button>
+                <button className="primary" disabled={savingTransaction}>{savingTransaction ? 'Sparar...' : 'Spara'}</button>
+              </div>
+            </form>
+          </section>
+        </div>
       )}
     </Shell>
   );
@@ -656,14 +663,12 @@ function Shell({
   children,
   user,
   onLogout,
-  appSection,
   onNavigate,
   headerAction,
 }: {
   children: React.ReactNode;
   user?: User | null;
   onLogout?: () => void;
-  appSection?: AppSection;
   onNavigate?: (section: AppSection) => void;
   headerAction?: React.ReactNode;
 }) {
@@ -701,7 +706,7 @@ function Shell({
             <BrandMark />
             <div>
               <h1>Piggy Bank</h1>
-              <p>Sparkonto Barn</p>
+              <p>Barnens sparande</p>
             </div>
           </div>
           {user && (
@@ -709,17 +714,43 @@ function Shell({
               {headerAction}
               <div className="user-menu" ref={userMenuRef}>
                 <button
-                    className="icon-button user-menu-trigger"
-                    type="button"
-                    aria-haspopup="menu"
-                    aria-expanded={userMenuOpen}
-                    onClick={() => setUserMenuOpen((open) => !open)}
-                    aria-label={`Användare ${user.username}`}
-                  >
-                    {user.username ? user.username.charAt(0).toUpperCase() : ''}
-                  </button>
+                  className="icon-button user-menu-trigger"
+                  type="button"
+                  aria-haspopup="menu"
+                  aria-expanded={userMenuOpen}
+                  onClick={() => setUserMenuOpen((open) => !open)}
+                  aria-label={`Användare ${user.username}`}
+                >
+                  {user.username ? user.username.charAt(0).toUpperCase() : ''}
+                </button>
                 {userMenuOpen && (
                   <div className="user-popover" role="menu">
+                    {onNavigate && (
+                      <>
+                        <button
+                          className="menu-item"
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            onNavigate('dashboard');
+                            setUserMenuOpen(false);
+                          }}
+                        >
+                          Översikt
+                        </button>
+                        <button
+                          className="menu-item"
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            onNavigate('settings');
+                            setUserMenuOpen(false);
+                          }}
+                        >
+                          Inställningar
+                        </button>
+                      </>
+                    )}
                     <button className="menu-item" type="button" role="menuitem" onClick={onLogout}>
                       Logga ut
                     </button>
@@ -730,24 +761,6 @@ function Shell({
           )}
         </div>
       </header>
-      {user && onNavigate && (
-        <nav className="app-nav" aria-label="Huvudnavigation">
-          <button
-            className={appSection === 'dashboard' ? 'nav-item active' : 'nav-item'}
-            type="button"
-            onClick={() => onNavigate('dashboard')}
-          >
-            Översikt
-          </button>
-          <button
-            className={appSection === 'settings' ? 'nav-item active' : 'nav-item'}
-            type="button"
-            onClick={() => onNavigate('settings')}
-          >
-            Inställningar
-          </button>
-        </nav>
-      )}
       {children}
     </div>
   );
@@ -767,14 +780,7 @@ function AuthPanel({
   return (
     <main className="auth-wrap">
       <section className="auth-hero" aria-hidden="true">
-        <div className="auth-illustration">
-          <img src="/piggy-bank.svg" alt="" />
-        </div>
-        <div>
-          <p className="eyebrow">Piggy Bank</p>
-          <h2>Sparkonto Barn</h2>
-          <p>En enkel och privat plats för barnsparande, kontanter och fonder.</p>
-        </div>
+        <BrandMark />
       </section>
       <form className="panel auth" onSubmit={onSubmit}>
         <BrandMark />
@@ -807,20 +813,43 @@ function TextInput({
   );
 }
 
-function Balance({ label, amountOre }: { label: string; amountOre: number }) {
+function Balance({
+  account,
+  label,
+  amountOre,
+  active,
+  onSelect,
+}: {
+  account: AccountType;
+  label: string;
+  amountOre: number;
+  active: boolean;
+  onSelect: (account: AccountType) => void;
+}) {
+  const type = account === 'fund' ? 'fund' : 'cash';
+
   return (
-    <div className="balance">
+    <button
+      className={active ? `balance ${type} active` : `balance ${type}`}
+      type="button"
+      aria-pressed={active}
+      onClick={() => onSelect(account)}
+    >
+      <span className="balance-icon" aria-hidden="true" />
       <span>{label}</span>
       <strong>{formatSek(amountOre)}</strong>
-    </div>
+    </button>
   );
 }
 
 function ChildAvatar({ child, size }: { child: Child; size: 'small' | 'large' }) {
+  const sizeClass = size === 'large' ? 'avatar-large' : 'avatar-small';
   return child.photoUrl ? (
-    <img className={`avatar ${size}`} src={child.photoUrl} alt="" />
+    <span className={`avatar ${sizeClass}`}>
+      <img className="avatar-photo" src={child.photoUrl} alt="" />
+    </span>
   ) : (
-    <span className={`avatar ${size}`}>{child.name.slice(0, 1).toUpperCase()}</span>
+    <span className={`avatar ${sizeClass}`}>{child.name.slice(0, 1).toUpperCase()}</span>
   );
 }
 
@@ -840,10 +869,10 @@ function Message({ message }: { message: { type: 'error' | 'notice'; text: strin
   );
 }
 
-function accountLabel(account: AccountType): string {
-  return account === 'cash' ? 'Kontant' : 'Fond';
-}
-
 function formatSek(amountOre: number): string {
   return new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK' }).format(amountOre / 100);
+}
+
+function formatTransactionAmount(transaction: Transaction): string {
+  return transaction.type === 'withdrawal' ? `-${formatSek(transaction.amount_ore)}` : formatSek(transaction.amount_ore);
 }

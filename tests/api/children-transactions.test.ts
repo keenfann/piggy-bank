@@ -35,6 +35,45 @@ describe('children and transactions', () => {
       expect(body.children[0].cashBalanceOre).toBe(7500);
       expect(body.children[0].fundBalanceOre).toBe(0);
     });
+
+    await server.agent.get(`/api/children/${childId}/transactions`).expect(200).expect(({ body }) => {
+      expect(body.transactions.map((tx: { balance_ore: number }) => tx.balance_ore)).toEqual([7500, 10000]);
+    });
+  });
+
+  it('stores running transaction balances when history changes', async () => {
+    server = createTestServer();
+    await server.setupParent();
+    const child = await server.post('/api/children', { name: 'Anna' });
+    expect(child.status).toBe(201);
+    const childId = child.body.child.id;
+
+    const first = await server.post(`/api/children/${childId}/transactions`, {
+      account: 'cash',
+      type: 'deposit',
+      amountOre: 10000,
+      date: '2026-05-05',
+      comment: 'Present',
+    });
+    expect(first.status).toBe(201);
+    expect(first.body.transaction.balance_ore).toBe(10000);
+
+    const older = await server.post(`/api/children/${childId}/transactions`, {
+      account: 'cash',
+      type: 'deposit',
+      amountOre: 2500,
+      date: '2026-05-01',
+      comment: 'Earlier',
+    });
+    expect(older.status).toBe(201);
+    expect(older.body.transaction.balance_ore).toBe(2500);
+
+    await server.agent.get(`/api/children/${childId}/transactions`).expect(200).expect(({ body }) => {
+      expect(body.transactions.map((tx: { date: string; balance_ore: number }) => [tx.date, tx.balance_ore])).toEqual([
+        ['2026-05-05', 12500],
+        ['2026-05-01', 2500],
+      ]);
+    });
   });
 
   it('rejects invalid transaction data', async () => {

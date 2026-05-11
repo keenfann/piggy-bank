@@ -50,10 +50,14 @@ export default class SqliteSessionStore extends session.Store {
     }
   }
 
-  touch(sid: string, sess: session.SessionData, callback?: () => void): void {
-    const expires = resolveExpires(sess);
-    this.db.prepare('UPDATE sessions_store SET expires = ? WHERE sid = ?').run(expires, sid);
-    callback?.();
+  touch(sid: string, sess: session.SessionData, callback?: (err?: unknown) => void): void {
+    try {
+      const expires = resolveExpires(sess);
+      this.db.prepare('UPDATE sessions_store SET expires = ? WHERE sid = ?').run(expires, sid);
+      callback?.();
+    } catch (error) {
+      callback?.(error);
+    }
   }
 }
 
