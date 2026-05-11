@@ -1,6 +1,8 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { apiFetch, ensureCsrf, resetCsrf, type AccountType, type Child, type ImportResult, type Transaction, type TransactionType, type User } from './api';
 
+declare const __APP_VERSION__: string;
+
 type ViewState = 'loading' | 'setup' | 'login' | 'app';
 type AppSection = 'dashboard' | 'settings';
 
@@ -539,6 +541,7 @@ export function App() {
           ) : (
             <section className="panel">Det finns inga barninställningar för barnkonton.</section>
           )}
+          <p className="settings-version">Version {__APP_VERSION__}</p>
         </>
       ) : (
         <>

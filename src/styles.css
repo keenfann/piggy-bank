@@ -1015,6 +1015,15 @@ tbody tr:hover {
   margin-top: 6px;
 }
 
+.settings-version {
+  margin: 20px 4px 0;
+  color: var(--outline);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;

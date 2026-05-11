@@ -53,6 +53,9 @@ describe('App', () => {
     expect(screen.getByLabelText('Belopp (kr)')).toBeInTheDocument();
     await userEvent.type(screen.getByLabelText('Kommentar'), 'Present');
     expect(screen.getByDisplayValue('Present')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Användare parent' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Inställningar' }));
+    expect(screen.getByText('Version 1.0.0')).toBeInTheDocument();
   });
 
   it('requires confirmation before deleting a transaction', async () => {
