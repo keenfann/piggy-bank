@@ -459,11 +459,7 @@ export function App() {
                 )}
 
                 <section className="panel wide import-export-panel">
-                  <h3>Import och export</h3>
-                  <div className="actions">
-                    <a className="button secondary" href="/api/export.json">Exportera JSON</a>
-                    <a className="button secondary" href="/api/export/transactions.csv">Exportera CSV</a>
-                  </div>
+                  <h3>Import</h3>
                   <label>
                     CSV-import
                     <textarea value={csv} onChange={(event) => setCsv(event.target.value)} rows={7} />
