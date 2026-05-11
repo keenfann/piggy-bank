@@ -40,6 +40,7 @@ export interface ImportResult {
 
 let csrfToken: string | null = null;
 let csrfPromise: Promise<string | null> | null = null;
+const REQUEST_TIMEOUT_MS = 15_000;
 
 export async function ensureCsrf(): Promise<string | null> {
   if (csrfToken) return csrfToken;
@@ -72,7 +73,7 @@ async function apiFetchWithCsrfRetry<T>(path: string, options: RequestInit, retr
     const token = await ensureCsrf();
     if (token) headers.set('x-csrf-token', token);
   }
-  const response = await fetch(path, { ...options, headers, credentials: 'include' });
+  const response = await fetchWithTimeout(path, { ...options, headers, credentials: 'include' });
   if (response.status === 204) return undefined as T;
   const contentType = response.headers.get('content-type') || '';
   const data = contentType.includes('application/json') ? await response.json() : await response.text();
@@ -93,4 +94,20 @@ async function apiFetchWithCsrfRetry<T>(path: string, options: RequestInit, retr
 
 export function resetCsrf(): void {
   csrfToken = null;
+}
+
+async function fetchWithTimeout(path: string, options: RequestInit): Promise<Response> {
+  if (options.signal) return fetch(path, options);
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    return await fetch(path, { ...options, signal: controller.signal });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('Begäran tog för lång tid. Försök igen.');
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
+  }
 }

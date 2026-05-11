@@ -85,6 +85,7 @@ export function App() {
 
   useEffect(() => {
     if (!txModalOpen) return;
+    setSavingTransaction(false);
 
     function closeTransactionModal(event: KeyboardEvent) {
       if (event.key === 'Escape') {
@@ -95,6 +96,15 @@ export function App() {
     document.addEventListener('keydown', closeTransactionModal);
     return () => document.removeEventListener('keydown', closeTransactionModal);
   }, [txModalOpen]);
+
+  useEffect(() => {
+    if (!savingTransaction) return;
+    const timer = setTimeout(() => {
+      setSavingTransaction(false);
+      setError('Sparandet tog för lång tid. Försök igen.');
+    }, 16_000);
+    return () => clearTimeout(timer);
+  }, [savingTransaction]);
 
   async function bootstrap() {
     try {
