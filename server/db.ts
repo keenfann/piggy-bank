@@ -12,6 +12,7 @@ export function createDatabase(dbPath = resolveDbPath()): AppDb {
   fs.mkdirSync(path.dirname(dbPath), { recursive: true });
   const db = new NativeDatabaseSync(dbPath) as AppDb;
   db.exec('PRAGMA journal_mode = WAL;');
+  db.exec('PRAGMA busy_timeout = 5000;');
   db.exec('PRAGMA foreign_keys = ON;');
   runMigrations(db);
   return db;
