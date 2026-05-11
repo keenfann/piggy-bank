@@ -40,12 +40,12 @@ export interface ImportResult {
 
 let csrfToken: string | null = null;
 let csrfPromise: Promise<string | null> | null = null;
-const REQUEST_TIMEOUT_MS = 15_000;
+const REQUEST_TIMEOUT_MS = 5_000;
 
 export async function ensureCsrf(): Promise<string | null> {
   if (csrfToken) return csrfToken;
   if (!csrfPromise) {
-    csrfPromise = fetch('/api/csrf', { credentials: 'include' })
+    csrfPromise = fetchWithTimeout('/api/csrf', { credentials: 'include' })
       .then((res) => {
         if (!res.ok) throw new Error('Kunde inte hämta CSRF-token');
         return res.json();
@@ -97,7 +97,16 @@ export function resetCsrf(): void {
 }
 
 async function fetchWithTimeout(path: string, options: RequestInit): Promise<Response> {
-  if (options.signal) return fetch(path, options);
+  if (options.signal) {
+    try {
+      return await fetch(path, options);
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        throw new Error('Begäran tog för lång tid. Försök igen.');
+      }
+      throw error;
+    }
+  }
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {

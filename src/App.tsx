@@ -19,6 +19,7 @@ const emptyTxForm = (): TxForm => ({
   date: new Date().toISOString().slice(0, 10),
   comment: '',
 });
+const TRANSACTION_SAVE_TIMEOUT_MS = 6_000;
 
 export function App() {
   const [view, setView] = useState<ViewState>('loading');
@@ -102,7 +103,7 @@ export function App() {
     const timer = setTimeout(() => {
       setSavingTransaction(false);
       setError('Sparandet tog för lång tid. Försök igen.');
-    }, 16_000);
+    }, TRANSACTION_SAVE_TIMEOUT_MS + 500);
     return () => clearTimeout(timer);
   }, [savingTransaction]);
 
@@ -198,10 +199,13 @@ export function App() {
     event.preventDefault();
     if (!selectedChild || savingTransaction) return;
     setSavingTransaction(true);
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), TRANSACTION_SAVE_TIMEOUT_MS);
     try {
       await run(async () => {
         await apiFetch(`/api/children/${selectedChild.id}/transactions`, {
           method: 'POST',
+          signal: controller.signal,
           body: JSON.stringify({
             account: txForm.account,
             type: txForm.type,
@@ -211,12 +215,18 @@ export function App() {
           }),
         });
         setTxForm(emptyTxForm());
-        await loadChildren();
-        await loadTransactions(selectedChild.id);
+        const [childrenData, transactionsData] = await Promise.all([
+          apiFetch<{ children: Child[] }>('/api/children', { signal: controller.signal }),
+          apiFetch<{ transactions: Transaction[] }>(`/api/children/${selectedChild.id}/transactions`, { signal: controller.signal }),
+        ]);
+        setChildren(childrenData.children);
+        setSelectedChildId((current) => current || childrenData.children[0]?.id || null);
+        setTransactions(transactionsData.transactions);
         setTxModalOpen(false);
         setNotice('Transaktionen sparades.');
       });
     } finally {
+      window.clearTimeout(timeout);
       setSavingTransaction(false);
     }
   }
