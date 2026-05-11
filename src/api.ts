@@ -25,6 +25,7 @@ export interface Transaction {
   account_type: AccountType;
   type: TransactionType;
   amount_ore: number;
+  balance_ore: number;
   date: string;
   comment: string;
   created_by_user_id: number;

@@ -60,7 +60,7 @@ describe('App', () => {
       if (url.endsWith('/api/children')) return json({ children: [{ id: 1, name: 'Anna', photoUrl: null, cashBalanceOre: 10000, fundBalanceOre: 0, childLogin: null }] });
       if (url.endsWith('/api/children/1/transactions')) {
         return json({
-          transactions: [{ id: 10, child_id: 1, account_type: 'cash', type: 'deposit', amount_ore: 10000, date: '2026-05-05', comment: '' }],
+          transactions: [{ id: 10, child_id: 1, account_type: 'cash', type: 'deposit', amount_ore: 10000, balance_ore: 10000, date: '2026-05-05', comment: '' }],
         });
       }
       if (url.endsWith('/api/transactions/10') && init?.method === 'DELETE') return json({});
@@ -69,14 +69,14 @@ describe('App', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     render(<App />);
-    const amountCell = await screen.findByRole('cell', { name: /100,00/ });
-    const row = amountCell.closest('tr');
+    const deleteButton = await screen.findByRole('button', { name: 'Ta bort transaktion' });
+    const row = deleteButton.closest('tr');
     expect(row).toBeTruthy();
     fireEvent.pointerDown(row as HTMLTableRowElement, { pointerType: 'touch', clientX: 10, clientY: 20 });
     fireEvent.pointerUp(row as HTMLTableRowElement, { pointerType: 'touch', clientX: 80, clientY: 24 });
     expect(row).toHaveClass('action-revealed');
 
-    await userEvent.click(screen.getByRole('button', { name: 'Ta bort transaktion' }));
+    await userEvent.click(deleteButton);
     expect(fetchMock).not.toHaveBeenCalledWith('/api/transactions/10', expect.objectContaining({ method: 'DELETE' }));
     expect(screen.getByRole('button', { name: 'Bekräfta borttagning' })).toBeInTheDocument();
 

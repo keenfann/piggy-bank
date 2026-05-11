@@ -399,6 +399,21 @@ export function App() {
   }
 
   const isParent = user?.role === 'parent';
+  const showChildPicker = children.length > 0 && (appSection === 'dashboard' || isParent);
+  const childPicker = showChildPicker ? (
+    <section className="toolbar child-picker" aria-label="Barn">
+      {children.map((child) => (
+        <button
+          key={child.id}
+          className={child.id === selectedChild?.id ? 'tab child-tab active' : 'tab child-tab'}
+          onClick={() => setSelectedChildId(child.id)}
+        >
+          <ChildAvatar child={child} size="small" />
+          <span>{child.name}</span>
+        </button>
+      ))}
+    </section>
+  ) : null;
 
   return (
     <Shell
@@ -419,6 +434,7 @@ export function App() {
       ) : null}
       >
       <Message message={flashMessage} />
+      {childPicker}
       {appSection === 'settings' ? (
         <>
           <div className="view-heading">
@@ -430,19 +446,6 @@ export function App() {
 
           {isParent ? (
             <>
-              <section className="toolbar" aria-label="Barn">
-                {children.map((child) => (
-                  <button
-                    key={child.id}
-                    className={child.id === selectedChild?.id ? 'tab child-tab active' : 'tab child-tab'}
-                    onClick={() => setSelectedChildId(child.id)}
-                  >
-                    <ChildAvatar child={child} size="small" />
-                    <span>{child.name}</span>
-                  </button>
-                ))}
-              </section>
-
               <main className="grid">
                 <section className="panel add-child-panel">
                   <h3>Barn</h3>
@@ -519,19 +522,6 @@ export function App() {
             </div>
           </div>
 
-          <section className="toolbar" aria-label="Barn">
-            {children.map((child) => (
-              <button
-                key={child.id}
-                className={child.id === selectedChild?.id ? 'tab child-tab active' : 'tab child-tab'}
-                onClick={() => setSelectedChildId(child.id)}
-              >
-                <ChildAvatar child={child} size="small" />
-                <span>{child.name}</span>
-              </button>
-            ))}
-          </section>
-
           {selectedChild ? (
             <main className="grid">
               <section className="panel child-hero">
@@ -553,9 +543,8 @@ export function App() {
                     <thead>
                       <tr>
                         <th>Datum</th>
-                        <th>Konto</th>
-                        <th>Typ</th>
                         <th>Belopp</th>
+                        <th>Saldo</th>
                         {isParent && <th className="action-column"></th>}
                       </tr>
                     </thead>
@@ -582,17 +571,8 @@ export function App() {
                             }}
                           >
                             <td>{tx.date}</td>
-                            <td>
-                              <span className={`tx-account ${tx.account_type}`} aria-label={accountLabel(tx.account_type)}>
-                                <span aria-hidden="true">{accountLabel(tx.account_type)}</span>
-                              </span>
-                            </td>
-                            <td>
-                              <span className={`tx-type ${tx.type}`} aria-label={tx.type === 'deposit' ? 'Insättning' : 'Uttag'}>
-                                <span aria-hidden="true">{tx.type === 'deposit' ? 'Insättning' : 'Uttag'}</span>
-                              </span>
-                            </td>
                             <td className={`amount ${tx.type}`}>{formatSek(tx.amount_ore)}</td>
+                            <td className="balance-cell">{formatSek(tx.balance_ore)}</td>
                             {isParent && (
                               <td className="table-action">
                                 <button
@@ -609,7 +589,7 @@ export function App() {
                       })}
                       {!transactions.length && (
                         <tr>
-                          <td colSpan={isParent ? 5 : 4}>Inga transaktioner ännu.</td>
+                          <td colSpan={isParent ? 4 : 3}>Inga transaktioner ännu.</td>
                         </tr>
                       )}
                     </tbody>
@@ -854,10 +834,6 @@ function Message({ message }: { message: { type: 'error' | 'notice'; text: strin
       {message.text}
     </div>
   );
-}
-
-function accountLabel(account: AccountType): string {
-  return account === 'cash' ? 'Kontant' : 'Fond';
 }
 
 function formatSek(amountOre: number): string {
