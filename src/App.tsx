@@ -38,7 +38,6 @@ export function App() {
   const [childName, setChildName] = useState('');
   const [txForm, setTxForm] = useState<TxForm>(emptyTxForm());
   const [childLogin, setChildLogin] = useState({ username: '', password: '' });
-  const [photoUrl, setPhotoUrl] = useState('');
   const [photoDataUrl, setPhotoDataUrl] = useState('');
   const [csv, setCsv] = useState('childName,account,type,amountOre,date,comment\n');
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
@@ -58,7 +57,6 @@ export function App() {
       setSelectedChildId(selectedChild.id);
       loadTransactions(selectedChild.id);
       setChildLogin({ username: selectedChild.childLogin?.username || '', password: '' });
-      setPhotoUrl(selectedChild.photoUrl || '');
       setPhotoDataUrl('');
       resetDeleteAction();
     }
@@ -267,18 +265,15 @@ export function App() {
   async function savePhoto(event: FormEvent) {
     event.preventDefault();
     if (!selectedChild) return;
-    const payload: { photoDataUrl?: string; photoUrl?: string } = {};
+    const payload: { photoDataUrl?: string } = {};
     if (photoDataUrl) {
       payload.photoDataUrl = photoDataUrl;
-    } else if (photoUrl) {
-      payload.photoUrl = photoUrl;
     }
     await run(async () => {
       await apiFetch(`/api/children/${selectedChild.id}/photo`, {
         method: 'POST',
         body: JSON.stringify(payload),
       });
-      setPhotoUrl('');
       setPhotoDataUrl('');
       await loadChildren();
       setNotice('Bilden sparades.');
@@ -455,7 +450,6 @@ export function App() {
                         {photoDataUrl && (
                           <img className="photo-preview" src={photoDataUrl} alt="Förhandsvisning av vald bild" />
                         )}
-                        <TextInput label="Bild-URL (valfritt)" value={photoUrl} onChange={setPhotoUrl} />
                         <button className="secondary">Spara bild</button>
                       </form>
                     </section>
