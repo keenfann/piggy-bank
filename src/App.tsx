@@ -600,53 +600,53 @@ export function App() {
             <section className="panel">Öppna inställningar för att skapa ett barn.</section>
           )}
 
-          {isParent && selectedChild && txModalOpen && (
-            <div className="modal-backdrop" role="presentation" onClick={() => setTxModalOpen(false)}>
-              <section
-                className="panel modal"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="transaction-modal-title"
-                onClick={(event) => event.stopPropagation()}
-              >
-                <div className="modal-heading">
-                  <h3 id="transaction-modal-title">Ny transaktion</h3>
-                  <button
-                    className="ghost small"
-                    type="button"
-                    aria-label="Stäng"
-                    onClick={() => setTxModalOpen(false)}
-                  >
-                    Stäng
-                  </button>
-                </div>
-                <form className="stack" onSubmit={addTransaction}>
-                  <label>
-                    Konto
-                    <select value={txForm.account} onChange={(event) => setTxForm({ ...txForm, account: event.target.value as AccountType })}>
-                      <option value="cash">Kontant</option>
-                      <option value="fund">Fond</option>
-                    </select>
-                  </label>
-                  <label>
-                    Typ
-                    <select value={txForm.type} onChange={(event) => setTxForm({ ...txForm, type: event.target.value as TransactionType })}>
-                      <option value="deposit">Insättning</option>
-                      <option value="withdrawal">Uttag</option>
-                    </select>
-                  </label>
-                  <TextInput label="Belopp (kr)" inputMode="decimal" value={txForm.amount} onChange={(value) => setTxForm({ ...txForm, amount: value })} />
-                  <TextInput label="Datum" type="date" value={txForm.date} onChange={(value) => setTxForm({ ...txForm, date: value })} />
-                  <TextInput label="Kommentar" value={txForm.comment} onChange={(value) => setTxForm({ ...txForm, comment: value })} />
-                  <div className="actions">
-                    <button className="secondary" type="button" onClick={() => setTxModalOpen(false)}>Avbryt</button>
-                    <button className="primary">Spara</button>
-                  </div>
-                </form>
-              </section>
-            </div>
-          )}
         </>
+      )}
+      {isParent && selectedChild && txModalOpen && (
+        <div className="modal-backdrop" role="presentation" onClick={() => setTxModalOpen(false)}>
+          <section
+            className="panel modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="transaction-modal-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="modal-heading">
+              <h3 id="transaction-modal-title">Ny transaktion</h3>
+              <button
+                className="ghost small"
+                type="button"
+                aria-label="Stäng"
+                onClick={() => setTxModalOpen(false)}
+              >
+                Stäng
+              </button>
+            </div>
+            <form className="stack" onSubmit={addTransaction}>
+              <label>
+                Typ
+                <select value={txForm.type} onChange={(event) => setTxForm({ ...txForm, type: event.target.value as TransactionType })}>
+                  <option value="deposit">Insättning</option>
+                  <option value="withdrawal">Uttag</option>
+                </select>
+              </label>
+              <label>
+                Konto
+                <select value={txForm.account} onChange={(event) => setTxForm({ ...txForm, account: event.target.value as AccountType })}>
+                  <option value="cash">Kontant</option>
+                  <option value="fund">Fond</option>
+                </select>
+              </label>
+              <TextInput label="Belopp (kr)" inputMode="decimal" value={txForm.amount} onChange={(value) => setTxForm({ ...txForm, amount: value })} />
+              <TextInput label="Datum" type="date" value={txForm.date} onChange={(value) => setTxForm({ ...txForm, date: value })} />
+              <TextInput label="Kommentar" value={txForm.comment} onChange={(value) => setTxForm({ ...txForm, comment: value })} />
+              <div className="actions">
+                <button className="secondary" type="button" onClick={() => setTxModalOpen(false)}>Avbryt</button>
+                <button className="primary">Spara</button>
+              </div>
+            </form>
+          </section>
+        </div>
       )}
     </Shell>
   );
@@ -808,8 +808,11 @@ function TextInput({
 }
 
 function Balance({ label, amountOre }: { label: string; amountOre: number }) {
+  const type = label === 'Fond' ? 'fund' : 'cash';
+
   return (
-    <div className="balance">
+    <div className={`balance ${type}`}>
+      <span className="balance-icon" aria-hidden="true" />
       <span>{label}</span>
       <strong>{formatSek(amountOre)}</strong>
     </div>
