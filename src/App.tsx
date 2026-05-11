@@ -422,9 +422,9 @@ export function App() {
               </section>
 
               <main className="grid">
-                <section className="panel">
+                <section className="panel add-child-panel">
                   <h3>Barn</h3>
-                  <form className="stack" onSubmit={addChild}>
+                  <form className="stack add-child-form" onSubmit={addChild}>
                     <TextInput label="Nytt barn" value={childName} onChange={setChildName} />
                     <button className="secondary">Lägg till</button>
                   </form>

@@ -308,6 +308,21 @@ h3 {
   box-shadow: var(--shadow-soft);
 }
 
+.add-child-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.add-child-form {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.add-child-form button {
+  margin-top: auto;
+}
+
 .auth-wrap {
   display: flex;
   flex-direction: column;
