@@ -1137,11 +1137,12 @@ tbody tr:hover {
   }
 
   .panel {
-    padding: 24px;
+    padding: 18px;
   }
 
   .child-hero {
     grid-template-columns: 1fr;
+    gap: 10px;
   }
 
   .child-hero > .avatar.large {
@@ -1150,10 +1151,93 @@ tbody tr:hover {
 
   .balances {
     grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .child-summary h2 {
+    margin-bottom: 10px;
+    font-size: 20px;
+    line-height: 26px;
+  }
+
+  .balance {
+    gap: 10px;
+    padding: 12px 14px;
+  }
+
+  .balance-icon {
+    width: 34px;
+    height: 34px;
+    flex-basis: 34px;
+  }
+
+  .balance.cash .balance-icon::before {
+    inset: 10px 8px;
+  }
+
+  .balance.cash .balance-icon::after {
+    top: 14px;
+    left: 14px;
+  }
+
+  .balance.fund .balance-icon::before {
+    left: 9px;
+    bottom: 10px;
+  }
+
+  .balance.fund .balance-icon::after {
+    bottom: 8px;
+  }
+
+  .balance span:not(.balance-icon) {
+    font-size: 15px;
+    line-height: 20px;
   }
 
   .balance strong {
-    font-size: 27px;
+    font-size: clamp(1.35rem, 6vw, 1.55rem);
+    line-height: 30px;
+  }
+
+  th,
+  td {
+    padding: 10px 5px;
+    font-size: 13px;
+  }
+
+  table {
+    table-layout: fixed;
+  }
+
+  th:first-child,
+  td:first-child {
+    width: 31%;
+  }
+
+  th:nth-child(2),
+  td:nth-child(2) {
+    width: 20%;
+  }
+
+  th:nth-child(3),
+  td:nth-child(3) {
+    width: 25%;
+  }
+
+  th:nth-child(4),
+  td:nth-child(4) {
+    width: 24%;
+    text-align: right;
+  }
+
+  .tx-type {
+    min-height: 24px;
+    padding-inline: 7px;
+    font-size: 10px;
+  }
+
+  .amount {
+    font-size: 12px;
   }
 
   .message-popover {
