@@ -562,10 +562,14 @@ export function App() {
                             }}
                           >
                             <td>{tx.date}</td>
-                            <td>{accountLabel(tx.account_type)}</td>
                             <td>
-                              <span className={`tx-type ${tx.type}`}>
-                                {tx.type === 'deposit' ? 'Insättning' : 'Uttag'}
+                              <span className={`tx-account ${tx.account_type}`} aria-label={accountLabel(tx.account_type)}>
+                                <span aria-hidden="true">{accountLabel(tx.account_type)}</span>
+                              </span>
+                            </td>
+                            <td>
+                              <span className={`tx-type ${tx.type}`} aria-label={tx.type === 'deposit' ? 'Insättning' : 'Uttag'}>
+                                <span aria-hidden="true">{tx.type === 'deposit' ? 'Insättning' : 'Uttag'}</span>
                               </span>
                             </td>
                             <td className={`amount ${tx.type}`}>{formatSek(tx.amount_ore)}</td>
