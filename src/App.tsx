@@ -79,7 +79,7 @@ export function App() {
       setFlashMessage(null);
       setError('');
       setNotice('');
-    }, 2200);
+    }, 8000);
 
     return () => clearTimeout(timer);
   }, [error, notice]);
@@ -354,7 +354,7 @@ export function App() {
   if (view === 'setup') {
     return (
       <Shell>
-        <AuthPanel title="Skapa föräldrakonto" onSubmit={submitSetup}>
+        <AuthPanel title="Skapa föräldrakonto" description="Kom igång med ett tryggt sparflöde för barnens konton." onSubmit={submitSetup}>
           <TextInput label="Användarnamn" value={setupForm.username} onChange={(value) => setSetupForm({ ...setupForm, username: value })} />
           <TextInput label="Lösenord" type="password" value={setupForm.password} onChange={(value) => setSetupForm({ ...setupForm, password: value })} />
           <button className="primary">Kom igång</button>
@@ -366,7 +366,7 @@ export function App() {
   if (view === 'login') {
     return (
       <Shell>
-        <AuthPanel title="Logga in" onSubmit={submitLogin}>
+        <AuthPanel title="Logga in" description="Välkommen tillbaka till barnens sparöversikt." onSubmit={submitLogin}>
           <TextInput label="Användarnamn" value={loginForm.username} onChange={(value) => setLoginForm({ ...loginForm, username: value })} />
           <TextInput label="Lösenord" type="password" value={loginForm.password} onChange={(value) => setLoginForm({ ...loginForm, password: value })} />
           <button className="primary">Logga in</button>
@@ -382,7 +382,8 @@ export function App() {
     <Shell
       user={user}
       onLogout={logout}
-      onOpenSettings={() => setAppSection('settings')}
+      appSection={appSection}
+      onNavigate={setAppSection}
       headerAction={isParent && selectedChild ? (
         <button
           className="icon-button primary"
@@ -403,7 +404,6 @@ export function App() {
               <p className="eyebrow">Inställningar</p>
               <h2>Hantera appen</h2>
             </div>
-            <button className="secondary" type="button" onClick={() => setAppSection('dashboard')}>Till översikt</button>
           </div>
 
           {isParent ? (
@@ -412,10 +412,11 @@ export function App() {
                 {children.map((child) => (
                   <button
                     key={child.id}
-                    className={child.id === selectedChild?.id ? 'tab active' : 'tab'}
+                    className={child.id === selectedChild?.id ? 'tab child-tab active' : 'tab child-tab'}
                     onClick={() => setSelectedChildId(child.id)}
                   >
-                    {child.name}
+                    <ChildAvatar child={child} size="small" />
+                    <span>{child.name}</span>
                   </button>
                 ))}
               </section>
@@ -494,14 +495,22 @@ export function App() {
         </>
       ) : (
         <>
+          <div className="view-heading">
+            <div>
+              <p className="eyebrow">Översikt</p>
+              <h2>{selectedChild ? `${selectedChild.name}s sparande` : 'Sparkonto Barn'}</h2>
+            </div>
+          </div>
+
           <section className="toolbar" aria-label="Barn">
             {children.map((child) => (
               <button
                 key={child.id}
-                className={child.id === selectedChild?.id ? 'tab active' : 'tab'}
+                className={child.id === selectedChild?.id ? 'tab child-tab active' : 'tab child-tab'}
                 onClick={() => setSelectedChildId(child.id)}
               >
-                {child.name}
+                <ChildAvatar child={child} size="small" />
+                <span>{child.name}</span>
               </button>
             ))}
           </section>
@@ -509,7 +518,7 @@ export function App() {
           {selectedChild ? (
             <main className="grid">
               <section className="panel child-hero">
-                {selectedChild.photoUrl ? <img src={selectedChild.photoUrl} alt="" /> : <div className="avatar">{selectedChild.name.slice(0, 1).toUpperCase()}</div>}
+                <ChildAvatar child={selectedChild} size="large" />
                 <div className="child-summary">
                   <p className="eyebrow">Sparkonto</p>
                   <h2>{selectedChild.name}</h2>
@@ -557,8 +566,12 @@ export function App() {
                           >
                             <td>{tx.date}</td>
                             <td>{accountLabel(tx.account_type)}</td>
-                            <td>{tx.type === 'deposit' ? 'Insättning' : 'Uttag'}</td>
-                            <td>{formatSek(tx.amount_ore)}</td>
+                            <td>
+                              <span className={`tx-type ${tx.type}`}>
+                                {tx.type === 'deposit' ? 'Insättning' : 'Uttag'}
+                              </span>
+                            </td>
+                            <td className={`amount ${tx.type}`}>{formatSek(tx.amount_ore)}</td>
                             {isParent && (
                               <td className="table-action">
                                 <button
@@ -643,13 +656,15 @@ function Shell({
   children,
   user,
   onLogout,
-  onOpenSettings,
+  appSection,
+  onNavigate,
   headerAction,
 }: {
   children: React.ReactNode;
   user?: User | null;
   onLogout?: () => void;
-  onOpenSettings?: () => void;
+  appSection?: AppSection;
+  onNavigate?: (section: AppSection) => void;
   headerAction?: React.ReactNode;
 }) {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -679,11 +694,16 @@ function Shell({
   }, [userMenuOpen]);
 
   return (
-    <div className="app-shell">
+    <div className={user ? 'app-shell is-authed' : 'app-shell is-auth'}>
       <header>
-        <p className="eyebrow">Piggy Bank</p>
         <div className="title-row">
-          <h1>Sparkonto Barn</h1>
+          <div className="brand-lockup">
+            <BrandMark />
+            <div>
+              <h1>Piggy Bank</h1>
+              <p>Sparkonto Barn</p>
+            </div>
+          </div>
           {user && (
             <div className="header-controls">
               {headerAction}
@@ -700,17 +720,6 @@ function Shell({
                   </button>
                 {userMenuOpen && (
                   <div className="user-popover" role="menu">
-                    <button
-                      className="menu-item"
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        setUserMenuOpen(false);
-                        onOpenSettings?.();
-                      }}
-                    >
-                      Inställningar
-                    </button>
                     <button className="menu-item" type="button" role="menuitem" onClick={onLogout}>
                       Logga ut
                     </button>
@@ -721,17 +730,57 @@ function Shell({
           )}
         </div>
       </header>
+      {user && onNavigate && (
+        <nav className="app-nav" aria-label="Huvudnavigation">
+          <button
+            className={appSection === 'dashboard' ? 'nav-item active' : 'nav-item'}
+            type="button"
+            onClick={() => onNavigate('dashboard')}
+          >
+            Översikt
+          </button>
+          <button
+            className={appSection === 'settings' ? 'nav-item active' : 'nav-item'}
+            type="button"
+            onClick={() => onNavigate('settings')}
+          >
+            Inställningar
+          </button>
+        </nav>
+      )}
       {children}
     </div>
   );
 }
 
-function AuthPanel({ title, onSubmit, children }: { title: string; onSubmit: (event: FormEvent) => void; children: React.ReactNode }) {
+function AuthPanel({
+  title,
+  description,
+  onSubmit,
+  children,
+}: {
+  title: string;
+  description: string;
+  onSubmit: (event: FormEvent) => void;
+  children: React.ReactNode;
+}) {
   return (
     <main className="auth-wrap">
+      <section className="auth-hero" aria-hidden="true">
+        <div className="auth-illustration">
+          <img src="/piggy-bank.svg" alt="" />
+        </div>
+        <div>
+          <p className="eyebrow">Piggy Bank</p>
+          <h2>Sparkonto Barn</h2>
+          <p>En enkel och privat plats för barnsparande, kontanter och fonder.</p>
+        </div>
+      </section>
       <form className="panel auth" onSubmit={onSubmit}>
+        <BrandMark />
         <h2>{title}</h2>
-        {children}
+        <p>{description}</p>
+        <div className="stack">{children}</div>
       </form>
     </main>
   );
@@ -765,6 +814,18 @@ function Balance({ label, amountOre }: { label: string; amountOre: number }) {
       <strong>{formatSek(amountOre)}</strong>
     </div>
   );
+}
+
+function ChildAvatar({ child, size }: { child: Child; size: 'small' | 'large' }) {
+  return child.photoUrl ? (
+    <img className={`avatar ${size}`} src={child.photoUrl} alt="" />
+  ) : (
+    <span className={`avatar ${size}`}>{child.name.slice(0, 1).toUpperCase()}</span>
+  );
+}
+
+function BrandMark() {
+  return <img className="brand-mark" src="/piggy-bank.svg" alt="" />;
 }
 
 function Message({ message }: { message: { type: 'error' | 'notice'; text: string } | null }) {

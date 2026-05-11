@@ -7,8 +7,7 @@ test('first-run setup, parent transaction, child scoping, and import', async ({ 
   await page.getByRole('button', { name: 'Kom igång' }).click();
   await expect(page.getByRole('heading', { name: 'Sparkonto Barn' })).toBeVisible();
 
-  await page.getByLabel(/Användare /).click();
-  await page.getByRole('menuitem', { name: 'Inställningar' }).click();
+  await page.getByRole('button', { name: 'Inställningar' }).click();
   await expect(page.getByRole('heading', { name: 'Hantera appen' })).toBeVisible();
   await page.getByLabel('Nytt barn').fill('Anna');
   await page.getByRole('button', { name: 'Lägg till' }).click();
@@ -19,7 +18,7 @@ test('first-run setup, parent transaction, child scoping, and import', async ({ 
   await page.getByRole('button', { name: 'Spara inloggning' }).click();
   await expect(page.getByText('Barninloggningen sparades.')).toBeVisible();
 
-  await page.getByRole('button', { name: 'Till översikt' }).click();
+  await page.getByRole('button', { name: 'Översikt' }).click();
   await expect(page.getByRole('heading', { name: 'Sparkonto Barn' })).toBeVisible();
   await page.getByRole('button', { name: 'Ny transaktion' }).click();
 
@@ -28,8 +27,7 @@ test('first-run setup, parent transaction, child scoping, and import', async ({ 
   await page.getByRole('button', { name: 'Spara', exact: true }).click();
   await expect(page.getByText('100,00 kr').first()).toBeVisible();
 
-  await page.getByLabel(/Användare /).click();
-  await page.getByRole('menuitem', { name: 'Inställningar' }).click();
+  await page.getByRole('button', { name: 'Inställningar' }).click();
   await expect(page.getByRole('heading', { name: 'Hantera appen' })).toBeVisible();
 
   await page.getByLabel('CSV-import').fill('childName,account,type,amountOre,date,comment\nAnna,fond,deposit,2500,2026-05-05,"Fond, maj"\n');
@@ -38,7 +36,7 @@ test('first-run setup, parent transaction, child scoping, and import', async ({ 
   await page.getByRole('button', { name: 'Importera' }).click();
   await expect(page.getByText('1 rader importerades.')).toBeVisible();
 
-  await page.getByRole('button', { name: 'Till översikt' }).click();
+  await page.getByRole('button', { name: 'Översikt' }).click();
   await expect(page.getByRole('heading', { name: 'Sparkonto Barn' })).toBeVisible();
   await page.getByLabel(/Användare /).click();
   await page.getByRole('menuitem', { name: 'Logga ut' }).click();

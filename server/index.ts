@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs';
 import crypto from 'node:crypto';
-import express, { type Request, type Response } from 'express';
+import express, { type NextFunction, type Request, type Response } from 'express';
 import session from 'express-session';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -302,9 +302,10 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
     });
   }
 
-  app.use((error: unknown, _req: Request, res: Response, _next: unknown) => {
+  app.use((error: unknown, _req: Request, res: Response, next: NextFunction) => {
+    if (res.headersSent) return next(error);
     const message = error instanceof Error ? error.message : 'Oväntat fel';
-    res.status(500).json({ error: message });
+    return res.status(500).json({ error: message });
   });
 
   return app;

@@ -45,7 +45,10 @@ export async function ensureCsrf(): Promise<string | null> {
   if (csrfToken) return csrfToken;
   if (!csrfPromise) {
     csrfPromise = fetch('/api/csrf', { credentials: 'include' })
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error('Kunde inte hämta CSRF-token');
+        return res.json();
+      })
       .then((data: { csrfToken?: string }) => {
         csrfToken = data.csrfToken || null;
         return csrfToken;
@@ -58,6 +61,10 @@ export async function ensureCsrf(): Promise<string | null> {
 }
 
 export async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
+  return apiFetchWithCsrfRetry(path, options, true);
+}
+
+async function apiFetchWithCsrfRetry<T>(path: string, options: RequestInit, retryOnInvalidCsrf: boolean): Promise<T> {
   const method = (options.method || 'GET').toUpperCase();
   const headers = new Headers(options.headers);
   if (method !== 'GET' && method !== 'HEAD') {
@@ -70,7 +77,13 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
   const contentType = response.headers.get('content-type') || '';
   const data = contentType.includes('application/json') ? await response.json() : await response.text();
   if (!response.ok) {
-    throw new Error(typeof data === 'object' && data && 'error' in data ? String(data.error) : 'Begäran misslyckades');
+    const message = typeof data === 'object' && data && 'error' in data ? String(data.error) : 'Begäran misslyckades';
+    if (retryOnInvalidCsrf && response.status === 403 && message === 'Ogiltig CSRF-token' && method !== 'GET' && method !== 'HEAD') {
+      resetCsrf();
+      await ensureCsrf();
+      return apiFetchWithCsrfRetry<T>(path, options, false);
+    }
+    throw new Error(message);
   }
   if (typeof data === 'object' && data && 'csrfToken' in data && typeof data.csrfToken === 'string') {
     csrfToken = data.csrfToken;
