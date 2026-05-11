@@ -88,4 +88,30 @@ describe('App', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Bekräfta borttagning' }));
     expect(fetchMock).toHaveBeenCalledWith('/api/transactions/10', expect.objectContaining({ method: 'DELETE' }));
   });
+
+  it('shows a transaction comment popover when clicking a transaction', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith('/api/csrf')) return json({ csrfToken: 'token' });
+      if (url.endsWith('/api/setup/status')) return json({ needsSetup: false });
+      if (url.endsWith('/api/auth/me')) return json({ user: { id: 1, username: 'parent', role: 'parent', childId: null }, csrfToken: 'token' });
+      if (url.endsWith('/api/children')) return json({ children: [{ id: 1, name: 'Anna', photoUrl: null, cashBalanceOre: 10000, fundBalanceOre: 0, childLogin: null }] });
+      if (url.includes('/api/children/1/transactions')) {
+        return json({
+          transactions: [{ id: 10, child_id: 1, account_type: 'cash', type: 'deposit', amount_ore: 5000, balance_ore: 10000, date: '2026-05-05', comment: 'Födelsedagspresent' }],
+        });
+      }
+      return json({});
+    }));
+
+    render(<App />);
+    const amount = await screen.findByText('50,00 kr');
+    const row = amount.closest('tr');
+    expect(row).toBeTruthy();
+
+    await userEvent.click(row as HTMLTableRowElement);
+
+    expect(screen.getByRole('dialog', { name: 'Transaktionskommentar' })).toBeInTheDocument();
+    expect(screen.getByText('Födelsedagspresent')).toBeInTheDocument();
+  });
 });

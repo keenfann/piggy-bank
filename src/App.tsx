@@ -34,6 +34,12 @@ export function App() {
   const [appSection, setAppSection] = useState<AppSection>('dashboard');
   const [txModalOpen, setTxModalOpen] = useState(false);
   const [savingTransaction, setSavingTransaction] = useState(false);
+  const [commentPopover, setCommentPopover] = useState<{
+    transaction: Transaction;
+    top: number;
+    left: number;
+    placement: 'above' | 'below';
+  } | null>(null);
   const [revealedDeleteId, setRevealedDeleteId] = useState<number | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [setupForm, setSetupForm] = useState({ username: 'parent', password: '' });
@@ -45,6 +51,7 @@ export function App() {
   const [csv, setCsv] = useState('childName,account,type,amountOre,date,comment\n');
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const swipeStartRef = useRef<{ transactionId: number; x: number; y: number } | null>(null);
+  const commentPopoverRef = useRef<HTMLDivElement>(null);
 
   const selectedChild = useMemo(
     () => children.find((child) => child.id === selectedChildId) || children[0] || null,
@@ -62,6 +69,7 @@ export function App() {
       setChildLogin({ username: selectedChild.childLogin?.username || '', password: '' });
       setPhotoDataUrl('');
       resetDeleteAction();
+      setCommentPopover(null);
     }
   }, [selectedChild?.id, selectedAccount]);
 
@@ -107,6 +115,35 @@ export function App() {
     }, TRANSACTION_SAVE_TIMEOUT_MS + 500);
     return () => clearTimeout(timer);
   }, [savingTransaction]);
+
+  useEffect(() => {
+    if (!commentPopover) return;
+
+    function closeCommentPopover(event: MouseEvent) {
+      const target = event.target;
+      if (
+        target instanceof Node &&
+        (commentPopoverRef.current?.contains(target) ||
+          (target instanceof Element && target.closest('[data-transaction-row="true"]')))
+      ) {
+        return;
+      }
+      setCommentPopover(null);
+    }
+
+    function closeCommentPopoverWithEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setCommentPopover(null);
+      }
+    }
+
+    document.addEventListener('mousedown', closeCommentPopover);
+    document.addEventListener('keydown', closeCommentPopoverWithEscape);
+    return () => {
+      document.removeEventListener('mousedown', closeCommentPopover);
+      document.removeEventListener('keydown', closeCommentPopoverWithEscape);
+    };
+  }, [commentPopover]);
 
   async function bootstrap() {
     try {
@@ -276,6 +313,19 @@ export function App() {
   function resetDeleteAction() {
     setRevealedDeleteId(null);
     setConfirmDeleteId(null);
+  }
+
+  function showTransactionComment(transaction: Transaction, row: HTMLTableRowElement) {
+    const rect = row.getBoundingClientRect();
+    const popoverWidth = Math.min(320, window.innerWidth - 24);
+    const placement = rect.bottom + 148 > window.innerHeight ? 'above' : 'below';
+    setCommentPopover({
+      transaction,
+      top: placement === 'above' ? Math.max(rect.top - 10, 12) : rect.bottom + 10,
+      left: Math.min(Math.max(rect.left + rect.width / 2, 12 + popoverWidth / 2), window.innerWidth - 12 - popoverWidth / 2),
+      placement,
+    });
+    resetDeleteAction();
   }
 
   async function saveChildLogin(event: FormEvent) {
@@ -569,11 +619,21 @@ export function App() {
                         return (
                           <tr
                             key={tx.id}
+                            data-transaction-row="true"
                             className={[
                               'transaction-row',
                               isDeleteRevealed ? 'action-revealed' : '',
                               isDeleteConfirming ? 'delete-confirming' : '',
                             ].filter(Boolean).join(' ')}
+                            tabIndex={0}
+                            aria-label={`Visa kommentar för transaktion ${tx.date}`}
+                            onClick={(event) => showTransactionComment(tx, event.currentTarget)}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter' || event.key === ' ') {
+                                event.preventDefault();
+                                showTransactionComment(tx, event.currentTarget);
+                              }
+                            }}
                             onPointerDown={(event) => {
                               if (isParent) beginTransactionSwipe(tx.id, event);
                             }}
@@ -592,7 +652,10 @@ export function App() {
                                 <button
                                   className="row-delete small"
                                   aria-label={isDeleteConfirming ? 'Bekräfta borttagning' : 'Ta bort transaktion'}
-                                  onClick={() => requestTransactionDelete(tx.id)}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    requestTransactionDelete(tx.id);
+                                  }}
                                 >
                                   {isDeleteConfirming ? 'Bekräfta' : 'Ta bort'}
                                 </button>
@@ -653,6 +716,22 @@ export function App() {
               </div>
             </form>
           </section>
+        </div>
+      )}
+      {commentPopover && (
+        <div
+          className={`transaction-comment-popover ${commentPopover.placement}`}
+          ref={commentPopoverRef}
+          role="dialog"
+          aria-live="polite"
+          aria-label="Transaktionskommentar"
+          style={{
+            top: commentPopover.top,
+            left: commentPopover.left,
+          }}
+        >
+          <p className="transaction-comment-label">Kommentar</p>
+          <p>{commentPopover.transaction.comment || 'Ingen kommentar'}</p>
         </div>
       )}
     </Shell>

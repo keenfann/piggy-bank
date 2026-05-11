@@ -863,11 +863,75 @@ tbody tr:hover {
 }
 
 .transaction-row {
+  cursor: pointer;
+  outline: none;
   touch-action: pan-y;
 }
 
 .transaction-row.action-revealed {
   background: #fbfefd;
+}
+
+.transaction-row:focus-visible {
+  background: var(--surface-low);
+  box-shadow: inset 0 0 0 2px rgba(35, 103, 77, .28);
+}
+
+.transaction-comment-popover {
+  position: fixed;
+  z-index: 35;
+  width: min(320px, calc(100vw - 24px));
+  border: 1px solid var(--outline-variant);
+  border-radius: 12px;
+  padding: 14px 16px;
+  background: var(--surface-bright);
+  box-shadow: 0 14px 36px rgba(25, 28, 26, .18);
+  color: var(--on-surface);
+  white-space: normal;
+  transform: translateX(-50%);
+}
+
+.transaction-comment-popover.above {
+  transform: translate(-50%, -100%);
+}
+
+.transaction-comment-popover::before {
+  position: absolute;
+  left: 50%;
+  width: 12px;
+  height: 12px;
+  border: solid var(--outline-variant);
+  border-width: 0 1px 1px 0;
+  background: var(--surface-bright);
+  content: '';
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.transaction-comment-popover.below::before {
+  top: -7px;
+  border-width: 1px 0 0 1px;
+}
+
+.transaction-comment-popover.above::before {
+  bottom: -7px;
+}
+
+.transaction-comment-popover p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.transaction-comment-popover p + p {
+  margin-top: 6px;
+}
+
+.transaction-comment-label {
+  color: var(--outline);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  line-height: 16px;
+  text-transform: uppercase;
 }
 
 .amount {
