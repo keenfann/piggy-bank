@@ -516,8 +516,29 @@ function must<T>(value: T | undefined | null): T {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const app = createApp();
+  const db = createDatabase();
+  const app = createApp({ db });
   const port = Number(process.env.PORT) || 4287;
   const host = process.env.HOST || '0.0.0.0';
-  app.listen(port, host, () => console.log(`Piggy Bank kör på http://${host}:${port}`));
+  const server = app.listen(port, host, () => console.log(`Piggy Bank kör på http://${host}:${port}`));
+  let isShuttingDown = false;
+
+  const shutdown = (signal: NodeJS.Signals) => {
+    if (isShuttingDown) return;
+    isShuttingDown = true;
+    server.close((error) => {
+      try {
+        db.close();
+      } finally {
+        if (error) {
+          console.error(`Kunde inte stänga servern efter ${signal}.`, error);
+          process.exitCode = 1;
+        }
+        process.exit();
+      }
+    });
+  };
+
+  process.once('SIGINT', shutdown);
+  process.once('SIGTERM', shutdown);
 }
