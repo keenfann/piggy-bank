@@ -892,20 +892,37 @@ tbody tr:hover {
 }
 
 .tx-account.cash::before {
-  background:
-    radial-gradient(circle at 50% 50%, var(--primary) 0 2px, transparent 2.5px),
-    linear-gradient(var(--primary), var(--primary)) 50% 50% / 14px 2px no-repeat,
-    linear-gradient(var(--primary), var(--primary)) 50% 50% / 2px 10px no-repeat,
-    linear-gradient(var(--primary), var(--primary)) 50% 50% / 16px 12px no-repeat,
-    rgba(63, 129, 100, .18);
+  background: rgba(63, 129, 100, .18);
 }
 
 .tx-account.fund::before {
-  background:
-    linear-gradient(var(--secondary), var(--secondary)) 8px 13px / 3px 6px no-repeat,
-    linear-gradient(var(--secondary), var(--secondary)) 13px 10px / 3px 9px no-repeat,
-    linear-gradient(var(--secondary), var(--secondary)) 18px 7px / 3px 12px no-repeat,
-    rgba(213, 227, 255, .72);
+  background: rgba(213, 227, 255, .72);
+}
+
+.tx-account::after {
+  content: "";
+  display: none;
+  position: absolute;
+}
+
+.tx-account.cash::after {
+  width: 12px;
+  height: 8px;
+  border: 2px solid var(--primary);
+  border-radius: 3px;
+}
+
+.tx-account.fund::after {
+  left: 50%;
+  bottom: 7px;
+  width: 3px;
+  height: 5px;
+  border-radius: 2px 2px 0 0;
+  background: var(--secondary);
+  box-shadow:
+    6px -3px 0 var(--secondary),
+    12px -6px 0 var(--secondary);
+  transform: translateX(-9px);
 }
 
 .tx-type::before {
@@ -1288,7 +1305,8 @@ tbody tr:hover {
   }
 
   .tx-account::before,
-  .tx-type::before {
+  .tx-type::before,
+  .tx-account::after {
     display: block;
   }
 
