@@ -58,8 +58,8 @@ jobs:
       - name: Set release version
         id: version
         run: |
-          PACKAGE_VERSION=$(node -e "console.log(JSON.parse(require('fs').readFileSync('package.json', 'utf8')).version)")
-          echo "release_version=${PACKAGE_VERSION}.${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+          PACKAGE_MAJOR_MINOR=$(node -e "const version = JSON.parse(require('fs').readFileSync('package.json', 'utf8')).version; const [major, minor] = version.split('.'); console.log(major + '.' + minor)")
+          echo "release_version=${PACKAGE_MAJOR_MINOR}.${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
