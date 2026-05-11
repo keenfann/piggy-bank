@@ -26,6 +26,7 @@ export function App() {
   const [user, setUser] = useState<User | null>(null);
   const [children, setChildren] = useState<Child[]>([]);
   const [selectedChildId, setSelectedChildId] = useState<number | null>(null);
+  const [selectedAccount, setSelectedAccount] = useState<AccountType>('cash');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -57,12 +58,12 @@ export function App() {
   useEffect(() => {
     if (selectedChild) {
       setSelectedChildId(selectedChild.id);
-      loadTransactions(selectedChild.id);
+      loadTransactions(selectedChild.id, selectedAccount);
       setChildLogin({ username: selectedChild.childLogin?.username || '', password: '' });
       setPhotoDataUrl('');
       resetDeleteAction();
     }
-  }, [selectedChild?.id]);
+  }, [selectedChild?.id, selectedAccount]);
 
   useEffect(() => {
     if (!error && !notice) {
@@ -135,8 +136,8 @@ export function App() {
     setSelectedChildId((current) => current || data.children[0]?.id || null);
   }
 
-  async function loadTransactions(childId: number) {
-    const data = await apiFetch<{ transactions: Transaction[] }>(`/api/children/${childId}/transactions`);
+  async function loadTransactions(childId: number, account = selectedAccount) {
+    const data = await apiFetch<{ transactions: Transaction[] }>(`/api/children/${childId}/transactions?account=${account}`);
     setTransactions(data.transactions);
   }
 
@@ -173,6 +174,7 @@ export function App() {
       setUser(null);
       setChildren([]);
       setTransactions([]);
+      setSelectedAccount('cash');
       setAppSection('dashboard');
       setTxModalOpen(false);
       setSavingTransaction(false);
@@ -217,7 +219,7 @@ export function App() {
         setTxForm(emptyTxForm());
         const [childrenData, transactionsData] = await Promise.all([
           apiFetch<{ children: Child[] }>('/api/children', { signal: controller.signal }),
-          apiFetch<{ transactions: Transaction[] }>(`/api/children/${selectedChild.id}/transactions`, { signal: controller.signal }),
+          apiFetch<{ transactions: Transaction[] }>(`/api/children/${selectedChild.id}/transactions?account=${selectedAccount}`, { signal: controller.signal }),
         ]);
         setChildren(childrenData.children);
         setSelectedChildId((current) => current || childrenData.children[0]?.id || null);
@@ -419,11 +421,10 @@ export function App() {
     <Shell
       user={user}
       onLogout={logout}
-      appSection={appSection}
       onNavigate={setAppSection}
       headerAction={isParent && selectedChild ? (
         <button
-          className="icon-button primary"
+          className="icon-button add-transaction-button"
           type="button"
           aria-label="Ny transaktion"
           title="Ny transaktion"
@@ -524,20 +525,33 @@ export function App() {
 
           {selectedChild ? (
             <main className="grid">
-              <section className="panel child-hero">
-                <ChildAvatar child={selectedChild} size="large" />
+              <section
+                className={selectedChild.photoUrl ? 'panel child-hero has-photo' : 'panel child-hero'}
+                data-initial={selectedChild.name.slice(0, 1).toUpperCase()}
+                style={selectedChild.photoUrl ? ({ '--child-hero-photo': `url("${selectedChild.photoUrl}")` } as React.CSSProperties) : undefined}
+              >
                 <div className="child-summary">
-                  <p className="eyebrow">Sparkonto</p>
-                  <h2>{selectedChild.name}</h2>
                   <div className="balances">
-                    <Balance label="Kontant" amountOre={selectedChild.cashBalanceOre} />
-                    <Balance label="Fond" amountOre={selectedChild.fundBalanceOre} />
+                    <Balance
+                      account="cash"
+                      label="Kontant"
+                      amountOre={selectedChild.cashBalanceOre}
+                      active={selectedAccount === 'cash'}
+                      onSelect={setSelectedAccount}
+                    />
+                    <Balance
+                      account="fund"
+                      label="Fond"
+                      amountOre={selectedChild.fundBalanceOre}
+                      active={selectedAccount === 'fund'}
+                      onSelect={setSelectedAccount}
+                    />
                   </div>
                 </div>
               </section>
 
               <section className="panel wide">
-                <h3>Historik</h3>
+                <h3>{selectedAccount === 'cash' ? 'Kontanthistorik' : 'Fondhistorik'}</h3>
                 <div className="table-wrap">
                   <table>
                     <thead>
@@ -571,7 +585,7 @@ export function App() {
                             }}
                           >
                             <td>{tx.date}</td>
-                            <td className={`amount ${tx.type}`}>{formatSek(tx.amount_ore)}</td>
+                            <td className={`amount ${tx.type}`}>{formatTransactionAmount(tx)}</td>
                             <td className="balance-cell">{formatSek(tx.balance_ore)}</td>
                             {isParent && (
                               <td className="table-action">
@@ -589,7 +603,7 @@ export function App() {
                       })}
                       {!transactions.length && (
                         <tr>
-                          <td colSpan={isParent ? 4 : 3}>Inga transaktioner ännu.</td>
+                          <td colSpan={isParent ? 4 : 3}>Inga transaktioner för {selectedAccount === 'cash' ? 'kontantkontot' : 'fondkontot'} ännu.</td>
                         </tr>
                       )}
                     </tbody>
@@ -649,14 +663,12 @@ function Shell({
   children,
   user,
   onLogout,
-  appSection,
   onNavigate,
   headerAction,
 }: {
   children: React.ReactNode;
   user?: User | null;
   onLogout?: () => void;
-  appSection?: AppSection;
   onNavigate?: (section: AppSection) => void;
   headerAction?: React.ReactNode;
 }) {
@@ -702,17 +714,43 @@ function Shell({
               {headerAction}
               <div className="user-menu" ref={userMenuRef}>
                 <button
-                    className="icon-button user-menu-trigger"
-                    type="button"
-                    aria-haspopup="menu"
-                    aria-expanded={userMenuOpen}
-                    onClick={() => setUserMenuOpen((open) => !open)}
-                    aria-label={`Användare ${user.username}`}
-                  >
-                    {user.username ? user.username.charAt(0).toUpperCase() : ''}
-                  </button>
+                  className="icon-button user-menu-trigger"
+                  type="button"
+                  aria-haspopup="menu"
+                  aria-expanded={userMenuOpen}
+                  onClick={() => setUserMenuOpen((open) => !open)}
+                  aria-label={`Användare ${user.username}`}
+                >
+                  {user.username ? user.username.charAt(0).toUpperCase() : ''}
+                </button>
                 {userMenuOpen && (
                   <div className="user-popover" role="menu">
+                    {onNavigate && (
+                      <>
+                        <button
+                          className="menu-item"
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            onNavigate('dashboard');
+                            setUserMenuOpen(false);
+                          }}
+                        >
+                          Översikt
+                        </button>
+                        <button
+                          className="menu-item"
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            onNavigate('settings');
+                            setUserMenuOpen(false);
+                          }}
+                        >
+                          Inställningar
+                        </button>
+                      </>
+                    )}
                     <button className="menu-item" type="button" role="menuitem" onClick={onLogout}>
                       Logga ut
                     </button>
@@ -723,24 +761,6 @@ function Shell({
           )}
         </div>
       </header>
-      {user && onNavigate && (
-        <nav className="app-nav" aria-label="Huvudnavigation">
-          <button
-            className={appSection === 'dashboard' ? 'nav-item active' : 'nav-item'}
-            type="button"
-            onClick={() => onNavigate('dashboard')}
-          >
-            Översikt
-          </button>
-          <button
-            className={appSection === 'settings' ? 'nav-item active' : 'nav-item'}
-            type="button"
-            onClick={() => onNavigate('settings')}
-          >
-            Inställningar
-          </button>
-        </nav>
-      )}
       {children}
     </div>
   );
@@ -760,14 +780,7 @@ function AuthPanel({
   return (
     <main className="auth-wrap">
       <section className="auth-hero" aria-hidden="true">
-        <div className="auth-illustration">
-          <img src="/piggy-bank.svg" alt="" />
-        </div>
-        <div>
-          <p className="eyebrow">Piggy Bank</p>
-          <h2>Sparkonto Barn</h2>
-          <p>En enkel och privat plats för barnsparande, kontanter och fonder.</p>
-        </div>
+        <BrandMark />
       </section>
       <form className="panel auth" onSubmit={onSubmit}>
         <BrandMark />
@@ -800,23 +813,43 @@ function TextInput({
   );
 }
 
-function Balance({ label, amountOre }: { label: string; amountOre: number }) {
-  const type = label === 'Fond' ? 'fund' : 'cash';
+function Balance({
+  account,
+  label,
+  amountOre,
+  active,
+  onSelect,
+}: {
+  account: AccountType;
+  label: string;
+  amountOre: number;
+  active: boolean;
+  onSelect: (account: AccountType) => void;
+}) {
+  const type = account === 'fund' ? 'fund' : 'cash';
 
   return (
-    <div className={`balance ${type}`}>
+    <button
+      className={active ? `balance ${type} active` : `balance ${type}`}
+      type="button"
+      aria-pressed={active}
+      onClick={() => onSelect(account)}
+    >
       <span className="balance-icon" aria-hidden="true" />
       <span>{label}</span>
       <strong>{formatSek(amountOre)}</strong>
-    </div>
+    </button>
   );
 }
 
 function ChildAvatar({ child, size }: { child: Child; size: 'small' | 'large' }) {
+  const sizeClass = size === 'large' ? 'avatar-large' : 'avatar-small';
   return child.photoUrl ? (
-    <img className={`avatar ${size}`} src={child.photoUrl} alt="" />
+    <span className={`avatar ${sizeClass}`}>
+      <img className="avatar-photo" src={child.photoUrl} alt="" />
+    </span>
   ) : (
-    <span className={`avatar ${size}`}>{child.name.slice(0, 1).toUpperCase()}</span>
+    <span className={`avatar ${sizeClass}`}>{child.name.slice(0, 1).toUpperCase()}</span>
   );
 }
 
@@ -838,4 +871,8 @@ function Message({ message }: { message: { type: 'error' | 'notice'; text: strin
 
 function formatSek(amountOre: number): string {
   return new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK' }).format(amountOre / 100);
+}
+
+function formatTransactionAmount(transaction: Transaction): string {
+  return transaction.type === 'withdrawal' ? `-${formatSek(transaction.amount_ore)}` : formatSek(transaction.amount_ore);
 }

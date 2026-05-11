@@ -10,7 +10,7 @@
     "dev:chrome": "sleep 2 && open -a \"Google Chrome\" http://localhost:5173",
     "build": "npm run build:web && npm run build:server",
     "build:web": "vite build",
-    "build:server": "tsc -p tsconfig.node.json && cp -R server/migrations build/server/migrations",
+    "build:server": "tsc -p tsconfig.node.json && mkdir -p build/server/migrations && cp -R server/migrations/. build/server/migrations",
     "start": "node build/server/index.js",
     "start:e2e": "node build/server/index.js",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json",

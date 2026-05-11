@@ -1,7 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Sparkonto Barn">
-  <rect width="128" height="128" rx="28" fill="#f7faf8"/>
-  <path d="M36 68c0-20 17-34 40-34 19 0 34 10 38 26h8v18h-8a35 35 0 0 1-12 17v14H84v-7a56 56 0 0 1-18 0v7H48V96c-8-6-12-16-12-28Z" fill="#86efac" stroke="#166534" stroke-width="6" stroke-linejoin="round"/>
-  <circle cx="91" cy="58" r="5" fill="#166534"/>
-  <path d="M58 40h28" stroke="#166534" stroke-width="6" stroke-linecap="round"/>
-  <path d="M26 69h10" stroke="#166534" stroke-width="6" stroke-linecap="round"/>
+  <path d="M28 68c0-20 17-34 40-34 19 0 34 10 38 26h8v18h-8a35 35 0 0 1-12 17v14H76v-7a56 56 0 0 1-18 0v7H40V96c-8-6-12-16-12-28Z" fill="#86efac" stroke="#166534" stroke-width="6" stroke-linejoin="round"/>
+  <circle cx="83" cy="58" r="5" fill="#166534"/>
+  <path d="M50 40h28" stroke="#166534" stroke-width="6" stroke-linecap="round"/>
+  <path d="M18 69h10" stroke="#166534" stroke-width="6" stroke-linecap="round"/>
 </svg>

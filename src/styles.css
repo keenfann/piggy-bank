@@ -156,13 +156,28 @@ textarea:focus-visible {
   line-height: 1;
 }
 
+.add-transaction-button {
+  border: 0;
+  background: transparent;
+  color: var(--primary);
+  box-shadow: none;
+  font-size: 2rem;
+  font-weight: 600;
+}
+
+.add-transaction-button:hover,
+.add-transaction-button:focus-visible {
+  background: transparent;
+  box-shadow: none;
+}
+
 .brand-mark {
   width: 34px;
   height: 34px;
   flex: none;
   border-radius: 50%;
-  background: var(--primary-container);
-  box-shadow: 0 8px 24px rgba(35, 103, 77, .1);
+  background: transparent;
+  box-shadow: none;
 }
 
 .app-shell {
@@ -174,7 +189,7 @@ textarea:focus-visible {
 
 .app-shell.is-authed {
   padding-top: 88px;
-  padding-bottom: 104px;
+  padding-bottom: 40px;
 }
 
 .app-shell.is-auth {
@@ -239,38 +254,6 @@ header {
 
 .header-controls {
   justify-self: end;
-}
-
-.app-nav {
-  position: fixed;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  z-index: 18;
-  display: flex;
-  justify-content: center;
-  gap: 12px;
-  height: 80px;
-  border-top: 1px solid var(--outline-variant);
-  border-radius: 20px 20px 0 0;
-  padding: 10px 20px 16px;
-  background: rgba(248, 250, 246, .96);
-  box-shadow: 0 -4px 16px rgba(35, 103, 77, .06);
-  backdrop-filter: blur(16px);
-}
-
-.nav-item {
-  min-width: 132px;
-  min-height: 48px;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--on-surface-variant);
-  box-shadow: none;
-}
-
-.nav-item.active {
-  background: var(--primary-container);
-  color: var(--on-primary-container);
 }
 
 h1,
@@ -358,38 +341,9 @@ h3 {
   text-align: center;
 }
 
-.auth-illustration {
-  display: grid;
-  place-items: center;
+.auth-hero > .brand-mark {
   width: 96px;
   height: 96px;
-  border-radius: 50%;
-  background: var(--primary-container);
-  color: var(--on-primary-container);
-  box-shadow: 0 16px 36px rgba(35, 103, 77, .1);
-}
-
-.auth-illustration img {
-  width: 60px;
-  height: 60px;
-  border-radius: 18px;
-}
-
-.auth-hero h2 {
-  margin-bottom: 0;
-  color: var(--on-surface);
-  font-size: 32px;
-  font-weight: 800;
-  line-height: 40px;
-}
-
-.auth-hero p:not(.eyebrow) {
-  max-width: 330px;
-  margin-inline: auto;
-  margin-bottom: 0;
-  color: var(--on-surface-variant);
-  font-size: 16px;
-  line-height: 24px;
 }
 
 .auth {
@@ -439,24 +393,52 @@ h3 {
 }
 
 .child-hero {
-  display: grid;
-  grid-template-columns: 72px minmax(0, 1fr);
-  align-items: start;
-  gap: 16px;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  min-height: 320px;
   grid-column: 1 / -1;
   border-color: var(--outline-variant);
   background: var(--surface-lowest);
 }
 
 .child-hero::before {
-  display: none;
+  content: attr(data-initial);
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at 24% 18%, rgba(172, 241, 207, .42), transparent 18rem),
+    linear-gradient(135deg, rgba(213, 227, 255, .8), rgba(248, 250, 246, .92));
+  color: rgba(45, 95, 161, .16);
+  font-size: clamp(7rem, 34vw, 16rem);
+  font-weight: 800;
+  line-height: 1;
+}
+
+.child-hero.has-photo::before {
+  content: "";
+  background-image: var(--child-hero-photo);
+  background-position: center;
+  background-size: cover;
+}
+
+.child-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(180deg, rgba(25, 28, 26, .06), rgba(25, 28, 26, .44)),
+    linear-gradient(90deg, rgba(248, 250, 246, .72), rgba(248, 250, 246, .28));
 }
 
 .avatar {
   display: inline-grid;
   place-items: center;
   border: 1px solid var(--outline-variant);
-  object-fit: cover;
   overflow: hidden;
   flex: none;
   background: var(--secondary-container);
@@ -464,11 +446,15 @@ h3 {
   font-weight: 800;
 }
 
-img.avatar {
-  background: #fff;
+.avatar-photo {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
 }
 
-.avatar.large {
+.avatar-large {
   width: 72px;
   height: 72px;
   border-radius: 50%;
@@ -476,7 +462,7 @@ img.avatar {
   font-size: 28px;
 }
 
-.avatar.small {
+.avatar-small {
   width: 28px;
   height: 28px;
   border-radius: 50%;
@@ -484,14 +470,17 @@ img.avatar {
 }
 
 .child-summary {
+  position: absolute;
+  right: 24px;
+  bottom: 24px;
+  left: 24px;
+  z-index: 1;
   min-width: 0;
 }
 
-.child-summary h2 {
-  margin-bottom: 16px;
-  font-size: 20px;
-  font-weight: 800;
-  line-height: 28px;
+.child-hero .balance {
+  background: rgba(255, 255, 255, .88);
+  backdrop-filter: blur(8px);
 }
 
 .photo-preview {
@@ -520,11 +509,22 @@ img.avatar {
   border-radius: var(--radius);
   padding: 16px;
   background: var(--surface-bright);
-  transition: background-color .14s ease;
+  text-align: left;
+  transition: transform .14s ease, box-shadow .14s ease, background-color .14s ease, border-color .14s ease;
 }
 
 .balance:hover {
   background: var(--surface-low);
+}
+
+.balance.active {
+  border-color: rgba(35, 103, 77, .58);
+  box-shadow: 0 0 0 3px rgba(35, 103, 77, .12), 0 8px 22px rgba(35, 103, 77, .12);
+}
+
+.balance.fund.active {
+  border-color: rgba(45, 95, 161, .58);
+  box-shadow: 0 0 0 3px rgba(45, 95, 161, .12), 0 8px 22px rgba(45, 95, 161, .12);
 }
 
 .balance-icon {
@@ -680,6 +680,7 @@ textarea {
 
 .user-menu-trigger {
   border: 1px solid var(--outline-variant);
+  border-radius: 50%;
   background: var(--surface-low);
   color: var(--primary);
   font-weight: 800;
@@ -1009,30 +1010,7 @@ tbody tr:hover {
     padding-bottom: 40px;
   }
 
-  .app-nav {
-    position: static;
-    justify-content: flex-start;
-    width: fit-content;
-    height: auto;
-    margin-bottom: 24px;
-    border: 1px solid var(--outline-variant);
-    border-radius: 999px;
-    padding: 4px;
-    background: var(--surface-low);
-    box-shadow: none;
-  }
-
-  .nav-item {
-    min-width: 124px;
-    min-height: 40px;
-  }
-
-  .child-hero {
-    grid-template-columns: 104px minmax(0, 1fr);
-    gap: 24px;
-  }
-
-  .avatar.large {
+  .avatar-large {
     width: 104px;
     height: 104px;
     font-size: 42px;
@@ -1127,23 +1105,18 @@ tbody tr:hover {
   }
 
   .child-hero {
-    grid-template-columns: 1fr;
-    gap: 10px;
+    min-height: 420px;
   }
 
-  .child-hero > .avatar.large {
-    display: none;
+  .child-summary {
+    right: 18px;
+    bottom: 18px;
+    left: 18px;
   }
 
   .balances {
     grid-template-columns: 1fr;
     gap: 8px;
-  }
-
-  .child-summary h2 {
-    margin-bottom: 10px;
-    font-size: 20px;
-    line-height: 26px;
   }
 
   .balance {

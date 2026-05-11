@@ -37,14 +37,18 @@ describe('App', () => {
       if (url.endsWith('/api/setup/status')) return json({ needsSetup: false });
       if (url.endsWith('/api/auth/me')) return json({ user: { id: 1, username: 'parent', role: 'parent', childId: null }, csrfToken: 'token' });
       if (url.endsWith('/api/children')) return json({ children: [{ id: 1, name: 'Anna', photoUrl: null, cashBalanceOre: 1000, fundBalanceOre: 2000, childLogin: null }] });
-      if (url.endsWith('/api/children/1/transactions')) return json({ transactions: [] });
+      if (url.includes('/api/children/1/transactions')) return json({ transactions: [] });
       return json({});
     });
     vi.stubGlobal('fetch', fetchMock);
 
     render(<App />);
-    expect(await screen.findByRole('heading', { name: 'Anna' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Annas sparande' })).toBeInTheDocument();
     expect(screen.getByText('10,00 kr')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Kontanthistorik' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /Fond20,00/ }));
+    expect(await screen.findByRole('heading', { name: 'Fondhistorik' })).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith('/api/children/1/transactions?account=fund', expect.any(Object));
     await userEvent.click(screen.getByRole('button', { name: 'Ny transaktion' }));
     expect(screen.getByLabelText('Belopp (kr)')).toBeInTheDocument();
     await userEvent.type(screen.getByLabelText('Kommentar'), 'Present');
@@ -58,9 +62,9 @@ describe('App', () => {
       if (url.endsWith('/api/setup/status')) return json({ needsSetup: false });
       if (url.endsWith('/api/auth/me')) return json({ user: { id: 1, username: 'parent', role: 'parent', childId: null }, csrfToken: 'token' });
       if (url.endsWith('/api/children')) return json({ children: [{ id: 1, name: 'Anna', photoUrl: null, cashBalanceOre: 10000, fundBalanceOre: 0, childLogin: null }] });
-      if (url.endsWith('/api/children/1/transactions')) {
+      if (url.includes('/api/children/1/transactions')) {
         return json({
-          transactions: [{ id: 10, child_id: 1, account_type: 'cash', type: 'deposit', amount_ore: 10000, balance_ore: 10000, date: '2026-05-05', comment: '' }],
+          transactions: [{ id: 10, child_id: 1, account_type: 'cash', type: 'withdrawal', amount_ore: 5000, balance_ore: 5000, date: '2026-05-05', comment: '' }],
         });
       }
       if (url.endsWith('/api/transactions/10') && init?.method === 'DELETE') return json({});
@@ -69,6 +73,7 @@ describe('App', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     render(<App />);
+    expect(await screen.findByText('-50,00 kr')).toBeInTheDocument();
     const deleteButton = await screen.findByRole('button', { name: 'Ta bort transaktion' });
     const row = deleteButton.closest('tr');
     expect(row).toBeTruthy();
