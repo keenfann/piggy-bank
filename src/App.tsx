@@ -610,14 +610,6 @@ export function App() {
           >
             <div className="modal-heading">
               <h3 id="transaction-modal-title">Ny transaktion</h3>
-              <button
-                className="ghost small"
-                type="button"
-                aria-label="Stäng"
-                onClick={() => setTxModalOpen(false)}
-              >
-                Stäng
-              </button>
             </div>
             <form className="stack" onSubmit={addTransaction} aria-busy={savingTransaction}>
               <label>
