@@ -706,7 +706,7 @@ function Shell({
             <BrandMark />
             <div>
               <h1>Piggy Bank</h1>
-              <p>Sparkonto Barn</p>
+              <p>Barnens sparande</p>
             </div>
           </div>
           {user && (
