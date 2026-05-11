@@ -865,11 +865,6 @@ tbody tr:hover {
 .transaction-row {
   cursor: pointer;
   outline: none;
-  touch-action: pan-y;
-}
-
-.transaction-row.action-revealed {
-  background: #fbfefd;
 }
 
 .transaction-row:focus-visible {
@@ -978,7 +973,6 @@ tbody tr:hover {
 
 .transaction-row:hover .row-delete,
 .transaction-row:focus-within .row-delete,
-.transaction-row.action-revealed .row-delete,
 .transaction-row.delete-confirming .row-delete {
   opacity: 1;
   pointer-events: auto;

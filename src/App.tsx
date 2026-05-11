@@ -40,7 +40,6 @@ export function App() {
     left: number;
     placement: 'above' | 'below';
   } | null>(null);
-  const [revealedDeleteId, setRevealedDeleteId] = useState<number | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [setupForm, setSetupForm] = useState({ username: 'parent', password: '' });
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
@@ -50,7 +49,6 @@ export function App() {
   const [photoDataUrl, setPhotoDataUrl] = useState('');
   const [csv, setCsv] = useState('childName,account,type,amountOre,date,comment\n');
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
-  const swipeStartRef = useRef<{ transactionId: number; x: number; y: number } | null>(null);
   const commentPopoverRef = useRef<HTMLDivElement>(null);
 
   const selectedChild = useMemo(
@@ -68,7 +66,7 @@ export function App() {
       loadTransactions(selectedChild.id, selectedAccount);
       setChildLogin({ username: selectedChild.childLogin?.username || '', password: '' });
       setPhotoDataUrl('');
-      resetDeleteAction();
+      resetDeleteConfirmation();
       setCommentPopover(null);
     }
   }, [selectedChild?.id, selectedAccount]);
@@ -276,29 +274,9 @@ export function App() {
       await apiFetch(`/api/transactions/${id}`, { method: 'DELETE' });
       await loadChildren();
       await loadTransactions(selectedChild.id);
-      resetDeleteAction();
+      resetDeleteConfirmation();
       setNotice('Transaktionen togs bort.');
     });
-  }
-
-  function beginTransactionSwipe(transactionId: number, event: React.PointerEvent<HTMLTableRowElement>) {
-    if (event.pointerType === 'mouse') return;
-    swipeStartRef.current = { transactionId, x: event.clientX, y: event.clientY };
-  }
-
-  function finishTransactionSwipe(event: React.PointerEvent<HTMLTableRowElement>) {
-    const swipeStart = swipeStartRef.current;
-    swipeStartRef.current = null;
-    if (!swipeStart) return;
-
-    const deltaX = event.clientX - swipeStart.x;
-    const deltaY = event.clientY - swipeStart.y;
-    if (deltaX > 56 && Math.abs(deltaY) < 40) {
-      setRevealedDeleteId(swipeStart.transactionId);
-      setConfirmDeleteId(null);
-    } else if (deltaX < -32 && Math.abs(deltaY) < 40) {
-      resetDeleteAction();
-    }
   }
 
   async function requestTransactionDelete(id: number) {
@@ -306,12 +284,10 @@ export function App() {
       await deleteTransaction(id);
       return;
     }
-    setRevealedDeleteId(id);
     setConfirmDeleteId(id);
   }
 
-  function resetDeleteAction() {
-    setRevealedDeleteId(null);
+  function resetDeleteConfirmation() {
     setConfirmDeleteId(null);
   }
 
@@ -325,7 +301,7 @@ export function App() {
       left: Math.min(Math.max(rect.left + rect.width / 2, 12 + popoverWidth / 2), window.innerWidth - 12 - popoverWidth / 2),
       placement,
     });
-    resetDeleteAction();
+    resetDeleteConfirmation();
   }
 
   async function saveChildLogin(event: FormEvent) {
@@ -614,7 +590,6 @@ export function App() {
                     </thead>
                     <tbody>
                       {transactions.map((tx) => {
-                        const isDeleteRevealed = revealedDeleteId === tx.id;
                         const isDeleteConfirming = confirmDeleteId === tx.id;
                         return (
                           <tr
@@ -622,7 +597,6 @@ export function App() {
                             data-transaction-row="true"
                             className={[
                               'transaction-row',
-                              isDeleteRevealed ? 'action-revealed' : '',
                               isDeleteConfirming ? 'delete-confirming' : '',
                             ].filter(Boolean).join(' ')}
                             tabIndex={0}
@@ -633,15 +607,6 @@ export function App() {
                                 event.preventDefault();
                                 showTransactionComment(tx, event.currentTarget);
                               }
-                            }}
-                            onPointerDown={(event) => {
-                              if (isParent) beginTransactionSwipe(tx.id, event);
-                            }}
-                            onPointerUp={(event) => {
-                              if (isParent) finishTransactionSwipe(event);
-                            }}
-                            onPointerCancel={() => {
-                              swipeStartRef.current = null;
                             }}
                           >
                             <td>{tx.date}</td>

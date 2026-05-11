@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { fireEvent, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../../src/App';
@@ -55,7 +55,7 @@ describe('App', () => {
     expect(screen.getByDisplayValue('Present')).toBeInTheDocument();
   });
 
-  it('requires reveal and confirmation before deleting a transaction', async () => {
+  it('requires confirmation before deleting a transaction', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       if (url.endsWith('/api/csrf')) return json({ csrfToken: 'token' });
@@ -75,11 +75,6 @@ describe('App', () => {
     render(<App />);
     expect(await screen.findByText('-50,00 kr')).toBeInTheDocument();
     const deleteButton = await screen.findByRole('button', { name: 'Ta bort transaktion' });
-    const row = deleteButton.closest('tr');
-    expect(row).toBeTruthy();
-    fireEvent.pointerDown(row as HTMLTableRowElement, { pointerType: 'touch', clientX: 10, clientY: 20 });
-    fireEvent.pointerUp(row as HTMLTableRowElement, { pointerType: 'touch', clientX: 80, clientY: 24 });
-    expect(row).toHaveClass('action-revealed');
 
     await userEvent.click(deleteButton);
     expect(fetchMock).not.toHaveBeenCalledWith('/api/transactions/10', expect.objectContaining({ method: 'DELETE' }));
