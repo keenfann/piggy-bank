@@ -31,6 +31,7 @@ export function App() {
   const [flashMessage, setFlashMessage] = useState<{ type: 'error' | 'notice'; text: string } | null>(null);
   const [appSection, setAppSection] = useState<AppSection>('dashboard');
   const [txModalOpen, setTxModalOpen] = useState(false);
+  const [savingTransaction, setSavingTransaction] = useState(false);
   const [revealedDeleteId, setRevealedDeleteId] = useState<number | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [setupForm, setSetupForm] = useState({ username: 'parent', password: '' });
@@ -163,6 +164,7 @@ export function App() {
       setTransactions([]);
       setAppSection('dashboard');
       setTxModalOpen(false);
+      setSavingTransaction(false);
       setView('login');
       await ensureCsrf();
     });
@@ -184,24 +186,29 @@ export function App() {
 
   async function addTransaction(event: FormEvent) {
     event.preventDefault();
-    if (!selectedChild) return;
-    await run(async () => {
-      await apiFetch(`/api/children/${selectedChild.id}/transactions`, {
-        method: 'POST',
-        body: JSON.stringify({
-          account: txForm.account,
-          type: txForm.type,
-          amountOre: Math.round(Number(txForm.amount) * 100),
-          date: txForm.date,
-          comment: txForm.comment,
-        }),
+    if (!selectedChild || savingTransaction) return;
+    setSavingTransaction(true);
+    try {
+      await run(async () => {
+        await apiFetch(`/api/children/${selectedChild.id}/transactions`, {
+          method: 'POST',
+          body: JSON.stringify({
+            account: txForm.account,
+            type: txForm.type,
+            amountOre: Math.round(Number(txForm.amount) * 100),
+            date: txForm.date,
+            comment: txForm.comment,
+          }),
+        });
+        setTxForm(emptyTxForm());
+        await loadChildren();
+        await loadTransactions(selectedChild.id);
+        setTxModalOpen(false);
+        setNotice('Transaktionen sparades.');
       });
-      setTxForm(emptyTxForm());
-      await loadChildren();
-      await loadTransactions(selectedChild.id);
-      setTxModalOpen(false);
-      setNotice('Transaktionen sparades.');
-    });
+    } finally {
+      setSavingTransaction(false);
+    }
   }
 
   async function deleteTransaction(id: number) {
@@ -612,7 +619,7 @@ export function App() {
                 Stäng
               </button>
             </div>
-            <form className="stack" onSubmit={addTransaction}>
+            <form className="stack" onSubmit={addTransaction} aria-busy={savingTransaction}>
               <label>
                 Typ
                 <select value={txForm.type} onChange={(event) => setTxForm({ ...txForm, type: event.target.value as TransactionType })}>
@@ -632,7 +639,7 @@ export function App() {
               <TextInput label="Kommentar" value={txForm.comment} onChange={(value) => setTxForm({ ...txForm, comment: value })} />
               <div className="actions">
                 <button className="secondary" type="button" onClick={() => setTxModalOpen(false)}>Avbryt</button>
-                <button className="primary">Spara</button>
+                <button className="primary" disabled={savingTransaction}>{savingTransaction ? 'Sparar...' : 'Spara'}</button>
               </div>
             </form>
           </section>

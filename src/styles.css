@@ -84,6 +84,13 @@ button:active,
   transform: scale(.98);
 }
 
+button:disabled,
+.button:disabled {
+  cursor: wait;
+  opacity: .72;
+  transform: none;
+}
+
 button:focus-visible,
 .button:focus-visible,
 input:focus-visible,
