@@ -319,6 +319,18 @@ h3 {
   flex-direction: column;
 }
 
+.add-child-form label {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.add-child-form input {
+  height: 48px;
+  min-height: 48px;
+}
+
 .add-child-form button {
   margin-top: auto;
 }
