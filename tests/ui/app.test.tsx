@@ -45,9 +45,9 @@ describe('App', () => {
     render(<App />);
     expect(await screen.findByRole('heading', { name: 'Annas sparande' })).toBeInTheDocument();
     expect(screen.getByText('10,00 kr')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Kontanthistorik' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Historik' })).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: /Fond20,00/ }));
-    expect(await screen.findByRole('heading', { name: 'Fondhistorik' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Historik' })).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith('/api/children/1/transactions?account=fund', expect.any(Object));
     await userEvent.click(screen.getByRole('button', { name: 'Ny transaktion' }));
     expect(screen.getByLabelText('Belopp (kr)')).toBeInTheDocument();
@@ -58,7 +58,7 @@ describe('App', () => {
     expect(screen.getByText('Version 1.0.0')).toBeInTheDocument();
   });
 
-  it('requires confirmation before deleting a transaction', async () => {
+  it('shows delete confirmation inside the unfolded transaction comment', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       if (url.endsWith('/api/csrf')) return json({ csrfToken: 'token' });
@@ -77,17 +77,19 @@ describe('App', () => {
 
     render(<App />);
     expect(await screen.findByText('-50,00 kr')).toBeInTheDocument();
-    const deleteButton = await screen.findByRole('button', { name: 'Ta bort transaktion' });
+    await userEvent.click(screen.getByRole('button', { name: 'Visa kommentar för transaktion 2026-05-05' }));
+    const deleteButton = screen.getByRole('button', { name: 'Ta bort transaktion' });
 
     await userEvent.click(deleteButton);
     expect(fetchMock).not.toHaveBeenCalledWith('/api/transactions/10', expect.objectContaining({ method: 'DELETE' }));
+    expect(screen.queryByRole('button', { name: 'Ta bort transaktion' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Bekräfta borttagning' })).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'Bekräfta borttagning' }));
     expect(fetchMock).toHaveBeenCalledWith('/api/transactions/10', expect.objectContaining({ method: 'DELETE' }));
   });
 
-  it('shows a transaction comment popover when clicking a transaction', async () => {
+  it('unfolds and folds a transaction comment when clicking a transaction card', async () => {
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (url.endsWith('/api/csrf')) return json({ csrfToken: 'token' });
@@ -103,13 +105,20 @@ describe('App', () => {
     }));
 
     render(<App />);
-    const amount = await screen.findByText('50,00 kr');
-    const row = amount.closest('tr');
-    expect(row).toBeTruthy();
+    await screen.findByText('50,00 kr');
+    const card = screen.getByRole('button', { name: 'Visa kommentar för transaktion 2026-05-05' });
+    const comment = screen.getByText('Födelsedagspresent');
 
-    await userEvent.click(row as HTMLTableRowElement);
+    expect(comment).not.toBeVisible();
 
-    expect(screen.getByRole('dialog', { name: 'Transaktionskommentar' })).toBeInTheDocument();
-    expect(screen.getByText('Födelsedagspresent')).toBeInTheDocument();
+    await userEvent.click(card);
+
+    expect(card).toHaveAttribute('aria-expanded', 'true');
+    expect(comment).toBeVisible();
+
+    await userEvent.click(card);
+
+    expect(card).toHaveAttribute('aria-expanded', 'false');
+    expect(comment).not.toBeVisible();
   });
 });

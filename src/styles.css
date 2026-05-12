@@ -528,61 +528,26 @@ h3 {
 }
 
 .balance-icon {
-  position: relative;
-  inset: auto;
   order: -1;
+  display: inline-grid;
+  place-items: center;
   width: 40px;
   height: 40px;
   border: 0;
   border-radius: 50%;
   background: rgba(63, 129, 100, .18);
+  color: var(--primary);
   flex: 0 0 40px;
 }
 
-.balance-icon::before,
-.balance-icon::after {
-  content: "";
-  position: absolute;
-}
-
-.balance.cash .balance-icon::before {
-  inset: 12px 9px;
-  border-radius: 4px;
-  border: 2px solid var(--primary);
-}
-
-.balance.cash .balance-icon::after {
-  top: 17px;
-  left: 17px;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--primary);
+.balance-icon svg {
+  width: 18px;
+  height: 18px;
 }
 
 .balance.fund .balance-icon {
   background: rgba(213, 227, 255, .72);
-}
-
-.balance.fund .balance-icon::before {
-  left: 11px;
-  bottom: 12px;
-  width: 4px;
-  height: 8px;
-  border-radius: 2px 2px 0 0;
-  background: var(--secondary);
-  box-shadow:
-    8px -5px 0 var(--secondary),
-    16px -10px 0 var(--secondary);
-}
-
-.balance.fund .balance-icon::after {
-  left: 9px;
-  right: 9px;
-  bottom: 10px;
-  height: 2px;
-  border-radius: 999px;
-  background: rgba(45, 95, 161, .22);
+  color: var(--secondary);
 }
 
 .balance span:not(.balance-icon) {
@@ -810,6 +775,22 @@ textarea {
   color: var(--primary);
 }
 
+.history-heading {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.history-heading svg {
+  width: 18px;
+  height: 18px;
+  color: var(--primary);
+}
+
+.history-heading.fund svg {
+  color: var(--secondary);
+}
+
 @keyframes message-popover-in {
   from {
     opacity: 0;
@@ -822,111 +803,123 @@ textarea {
   }
 }
 
-.table-wrap {
-  overflow-x: auto;
-  border-radius: var(--radius);
+.transaction-list {
+  display: grid;
+  gap: 10px;
+}
+
+.transaction-card {
+  border: 1px solid var(--outline-variant);
+  border-radius: 8px;
   background: var(--surface-lowest);
+  outline: none;
+  transition: background-color .14s ease, border-color .14s ease, box-shadow .14s ease;
 }
 
-table {
-  border-collapse: collapse;
+.transaction-card:hover,
+.transaction-card:focus-within,
+.transaction-card.expanded {
+  border-color: rgba(35, 103, 77, .28);
+  background: var(--surface-low);
+}
+
+.transaction-card:focus-within {
+  box-shadow: 0 0 0 3px rgba(35, 103, 77, .18);
+}
+
+.transaction-card-toggle {
+  display: grid;
+  grid-template-columns: minmax(96px, 1fr) minmax(84px, auto) minmax(84px, auto);
+  align-items: center;
+  gap: 10px;
   width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  border-radius: 8px;
+  padding: 8px 12px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
 }
 
-th,
-td {
-  border-bottom: 1px solid var(--surface-highest);
-  padding: 13px 12px;
-  text-align: left;
+.transaction-card-toggle:hover,
+.transaction-card-toggle:focus-visible {
+  background: transparent;
+  box-shadow: none;
+}
+
+.transaction-card-date,
+.transaction-card-toggle strong {
+  color: var(--on-surface);
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 22px;
   white-space: nowrap;
 }
 
-tr:last-child td {
-  border-bottom: 0;
+.transaction-card-amount,
+.transaction-card-balance {
+  text-align: right;
 }
 
-th {
-  color: var(--outline);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: .08em;
-  line-height: 16px;
-  text-transform: uppercase;
-}
-
-tbody tr {
-  transition: background-color .14s ease;
-}
-
-tbody tr:hover {
-  background: var(--surface-low);
-}
-
-.transaction-row {
-  cursor: pointer;
-  outline: none;
-}
-
-.transaction-row:focus-visible {
-  background: var(--surface-low);
-  box-shadow: inset 0 0 0 2px rgba(35, 103, 77, .28);
-}
-
-.transaction-comment-popover {
-  position: fixed;
-  z-index: 35;
-  width: min(320px, calc(100vw - 24px));
-  border: 1px solid var(--outline-variant);
-  border-radius: 12px;
-  padding: 14px 16px;
-  background: var(--surface-bright);
-  box-shadow: 0 14px 36px rgba(25, 28, 26, .18);
+.transaction-card-comment {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  border-top: 1px solid var(--outline-variant);
+  padding: 6px 12px 8px;
   color: var(--on-surface);
-  white-space: normal;
-  transform: translateX(-50%);
 }
 
-.transaction-comment-popover.above {
-  transform: translate(-50%, -100%);
+.transaction-card-comment[hidden] {
+  display: none;
 }
 
-.transaction-comment-popover::before {
-  position: absolute;
-  left: 50%;
-  width: 12px;
-  height: 12px;
-  border: solid var(--outline-variant);
-  border-width: 0 1px 1px 0;
-  background: var(--surface-bright);
-  content: '';
-  transform: translateX(-50%) rotate(45deg);
-}
-
-.transaction-comment-popover.below::before {
-  top: -7px;
-  border-width: 1px 0 0 1px;
-}
-
-.transaction-comment-popover.above::before {
-  bottom: -7px;
-}
-
-.transaction-comment-popover p {
+.transaction-card-comment p {
   margin: 0;
   overflow-wrap: anywhere;
+  font-size: 13px;
+  line-height: 18px;
+  white-space: normal;
 }
 
-.transaction-comment-popover p + p {
-  margin-top: 6px;
+.transaction-card-comment p + p {
+  margin-top: 5px;
 }
 
-.transaction-comment-label {
+.comment-delete {
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
+  border-radius: 50%;
+  padding: 0;
+  background: transparent;
+  color: var(--error);
+  box-shadow: none;
+}
+
+.comment-delete svg {
+  width: 14px;
+  height: 14px;
+}
+
+.comment-delete:hover,
+.comment-delete:focus-visible,
+.comment-delete.confirming {
+  background: var(--error-container);
+}
+
+.comment-delete.confirming svg {
+  color: #93000a;
+}
+
+.transaction-empty {
+  margin: 0;
+  border: 1px dashed var(--outline-variant);
+  border-radius: 8px;
+  padding: 16px;
   color: var(--outline);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: .08em;
-  line-height: 16px;
-  text-transform: uppercase;
 }
 
 .amount {
@@ -939,43 +932,6 @@ tbody tr:hover {
 
 .amount.withdrawal {
   color: var(--error);
-}
-
-.balance-cell {
-  color: var(--on-surface);
-  font-weight: 800;
-  text-align: right;
-}
-
-.action-column {
-  width: 1%;
-}
-
-.table-action {
-  text-align: right;
-}
-
-.row-delete {
-  min-height: 34px;
-  background: transparent;
-  color: var(--error);
-  font-weight: 800;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity .15s ease, background-color .15s ease;
-}
-
-.row-delete:hover,
-.row-delete:focus-visible,
-.transaction-row.delete-confirming .row-delete {
-  background: var(--error-container);
-}
-
-.transaction-row:hover .row-delete,
-.transaction-row:focus-within .row-delete,
-.transaction-row.delete-confirming .row-delete {
-  opacity: 1;
-  pointer-events: auto;
 }
 
 .result {
@@ -1112,6 +1068,10 @@ tbody tr:hover {
     flex: 1 1 0;
     padding-inline: 12px;
   }
+
+  .child-hero .balances {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 560px) {
@@ -1197,22 +1157,9 @@ tbody tr:hover {
     flex-basis: 34px;
   }
 
-  .balance.cash .balance-icon::before {
-    inset: 10px 8px;
-  }
-
-  .balance.cash .balance-icon::after {
-    top: 14px;
-    left: 14px;
-  }
-
-  .balance.fund .balance-icon::before {
-    left: 9px;
-    bottom: 10px;
-  }
-
-  .balance.fund .balance-icon::after {
-    bottom: 8px;
+  .balance-icon svg {
+    width: 16px;
+    height: 16px;
   }
 
   .balance span:not(.balance-icon) {
@@ -1225,41 +1172,21 @@ tbody tr:hover {
     line-height: 30px;
   }
 
-  th,
-  td {
-    padding: 10px 5px;
+  .transaction-card-toggle {
+    grid-template-columns: minmax(92px, 1fr) minmax(74px, auto) minmax(74px, auto);
+    gap: 8px;
+    min-height: 38px;
+    padding: 7px 10px;
+  }
+
+  .transaction-card-comment {
+    padding: 6px 10px 8px;
+  }
+
+  .transaction-card-date,
+  .transaction-card-toggle strong {
     font-size: 13px;
-  }
-
-  th {
-    font-size: 11px;
-    letter-spacing: 0;
-  }
-
-  table {
-    table-layout: fixed;
-  }
-
-  th:first-child,
-  td:first-child {
-    width: 34%;
-  }
-
-  th:nth-child(2),
-  td:nth-child(2) {
-    width: 32%;
-    text-align: right;
-  }
-
-  th:nth-child(3),
-  td:nth-child(3) {
-    width: 33%;
-    text-align: right;
-  }
-
-  .amount,
-  .balance-cell {
-    font-size: 12px;
+    line-height: 18px;
   }
 
   .message-popover {
@@ -1291,8 +1218,4 @@ tbody tr:hover {
     background: var(--outline-variant);
   }
 
-  th,
-  td {
-    padding: 11px 10px;
-  }
 }

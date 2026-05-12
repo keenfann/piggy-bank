@@ -49,7 +49,7 @@ test('first-run setup, parent transaction, child scoping, and import', async ({ 
   await openDashboard(page);
   await expect(page.getByRole('heading', { name: 'Annas sparande' })).toBeVisible();
   await page.getByRole('button', { name: /Fond/ }).click();
-  await expect(page.getByRole('heading', { name: 'Fondhistorik' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Historik' })).toBeVisible();
   await expect(page.getByText('25,00 kr').first()).toBeVisible();
   await page.getByLabel(/Användare /).click();
   await page.getByRole('menuitem', { name: 'Logga ut' }).click();

@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { FaChartLine, FaCheck, FaTrashCan, FaWallet } from 'react-icons/fa6';
 import { apiFetch, ensureCsrf, resetCsrf, type AccountType, type Child, type ImportResult, type Transaction, type TransactionType, type User } from './api';
 
 declare const __APP_VERSION__: string;
@@ -36,12 +37,7 @@ export function App() {
   const [appSection, setAppSection] = useState<AppSection>('dashboard');
   const [txModalOpen, setTxModalOpen] = useState(false);
   const [savingTransaction, setSavingTransaction] = useState(false);
-  const [commentPopover, setCommentPopover] = useState<{
-    transaction: Transaction;
-    top: number;
-    left: number;
-    placement: 'above' | 'below';
-  } | null>(null);
+  const [expandedTransactionId, setExpandedTransactionId] = useState<number | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [setupForm, setSetupForm] = useState({ username: 'parent', password: '' });
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
@@ -51,7 +47,6 @@ export function App() {
   const [photoDataUrl, setPhotoDataUrl] = useState('');
   const [csv, setCsv] = useState('childName,account,type,amountOre,date,comment\n');
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
-  const commentPopoverRef = useRef<HTMLDivElement>(null);
 
   const selectedChild = useMemo(
     () => children.find((child) => child.id === selectedChildId) || children[0] || null,
@@ -68,8 +63,8 @@ export function App() {
       loadTransactions(selectedChild.id, selectedAccount);
       setChildLogin({ username: selectedChild.childLogin?.username || '', password: '' });
       setPhotoDataUrl('');
+      setExpandedTransactionId(null);
       resetDeleteConfirmation();
-      setCommentPopover(null);
     }
   }, [selectedChild?.id, selectedAccount]);
 
@@ -115,35 +110,6 @@ export function App() {
     }, TRANSACTION_SAVE_TIMEOUT_MS + 500);
     return () => clearTimeout(timer);
   }, [savingTransaction]);
-
-  useEffect(() => {
-    if (!commentPopover) return;
-
-    function closeCommentPopover(event: MouseEvent) {
-      const target = event.target;
-      if (
-        target instanceof Node &&
-        (commentPopoverRef.current?.contains(target) ||
-          (target instanceof Element && target.closest('[data-transaction-row="true"]')))
-      ) {
-        return;
-      }
-      setCommentPopover(null);
-    }
-
-    function closeCommentPopoverWithEscape(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        setCommentPopover(null);
-      }
-    }
-
-    document.addEventListener('mousedown', closeCommentPopover);
-    document.addEventListener('keydown', closeCommentPopoverWithEscape);
-    return () => {
-      document.removeEventListener('mousedown', closeCommentPopover);
-      document.removeEventListener('keydown', closeCommentPopoverWithEscape);
-    };
-  }, [commentPopover]);
 
   async function bootstrap() {
     try {
@@ -270,12 +236,18 @@ export function App() {
     }
   }
 
+  function toggleTransactionComment(id: number) {
+    setExpandedTransactionId((current) => current === id ? null : id);
+    resetDeleteConfirmation();
+  }
+
   async function deleteTransaction(id: number) {
     if (!selectedChild) return;
     await run(async () => {
       await apiFetch(`/api/transactions/${id}`, { method: 'DELETE' });
       await loadChildren();
       await loadTransactions(selectedChild.id);
+      setExpandedTransactionId((current) => current === id ? null : current);
       resetDeleteConfirmation();
       setNotice('Transaktionen togs bort.');
     });
@@ -291,19 +263,6 @@ export function App() {
 
   function resetDeleteConfirmation() {
     setConfirmDeleteId(null);
-  }
-
-  function showTransactionComment(transaction: Transaction, row: HTMLTableRowElement) {
-    const rect = row.getBoundingClientRect();
-    const popoverWidth = Math.min(320, window.innerWidth - 24);
-    const placement = rect.bottom + 148 > window.innerHeight ? 'above' : 'below';
-    setCommentPopover({
-      transaction,
-      top: placement === 'above' ? Math.max(rect.top - 10, 12) : rect.bottom + 10,
-      left: Math.min(Math.max(rect.left + rect.width / 2, 12 + popoverWidth / 2), window.innerWidth - 12 - popoverWidth / 2),
-      placement,
-    });
-    resetDeleteConfirmation();
   }
 
   async function saveChildLogin(event: FormEvent) {
@@ -580,65 +539,55 @@ export function App() {
               </section>
 
               <section className="panel wide">
-                <h3>{selectedAccount === 'cash' ? 'Kontanthistorik' : 'Fondhistorik'}</h3>
-                <div className="table-wrap">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Datum</th>
-                        <th>Belopp</th>
-                        <th>Saldo</th>
-                        {isParent && <th className="action-column"></th>}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {transactions.map((tx) => {
-                        const isDeleteConfirming = confirmDeleteId === tx.id;
-                        return (
-                          <tr
-                            key={tx.id}
-                            data-transaction-row="true"
-                            className={[
-                              'transaction-row',
-                              isDeleteConfirming ? 'delete-confirming' : '',
-                            ].filter(Boolean).join(' ')}
-                            tabIndex={0}
-                            aria-label={`Visa kommentar för transaktion ${tx.date}`}
-                            onClick={(event) => showTransactionComment(tx, event.currentTarget)}
-                            onKeyDown={(event) => {
-                              if (event.key === 'Enter' || event.key === ' ') {
-                                event.preventDefault();
-                                showTransactionComment(tx, event.currentTarget);
-                              }
-                            }}
-                          >
-                            <td>{tx.date}</td>
-                            <td className={`amount ${tx.type}`}>{formatTransactionAmount(tx)}</td>
-                            <td className="balance-cell">{formatSek(tx.balance_ore)}</td>
-                            {isParent && (
-                              <td className="table-action">
-                                <button
-                                  className="row-delete small"
-                                  aria-label={isDeleteConfirming ? 'Bekräfta borttagning' : 'Ta bort transaktion'}
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    requestTransactionDelete(tx.id);
-                                  }}
-                                >
-                                  {isDeleteConfirming ? 'Bekräfta' : 'Ta bort'}
-                                </button>
-                              </td>
-                            )}
-                          </tr>
-                        );
-                      })}
-                      {!transactions.length && (
-                        <tr>
-                          <td colSpan={isParent ? 4 : 3}>Inga transaktioner för {selectedAccount === 'cash' ? 'kontantkontot' : 'fondkontot'} ännu.</td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
+                <h3 className={`history-heading ${selectedAccount}`}>
+                  {selectedAccount === 'cash' ? <FaWallet aria-hidden="true" /> : <FaChartLine aria-hidden="true" />}
+                  <span>Historik</span>
+                </h3>
+                <div className="transaction-list">
+                  {transactions.map((tx) => {
+                    const isExpanded = expandedTransactionId === tx.id;
+                    const isDeleteConfirming = confirmDeleteId === tx.id;
+                    const commentId = `transaction-comment-${tx.id}`;
+                    return (
+                      <article
+                        key={tx.id}
+                        className={[
+                          'transaction-card',
+                          isExpanded ? 'expanded' : '',
+                        ].filter(Boolean).join(' ')}
+                      >
+                        <button
+                          type="button"
+                          className="transaction-card-toggle"
+                          aria-expanded={isExpanded}
+                          aria-controls={commentId}
+                          aria-label={`${isExpanded ? 'Dölj' : 'Visa'} kommentar för transaktion ${tx.date}`}
+                          onClick={() => toggleTransactionComment(tx.id)}
+                        >
+                          <span className="transaction-card-date">{tx.date}</span>
+                          <strong className={`transaction-card-amount amount ${tx.type}`}>{formatTransactionAmount(tx)}</strong>
+                          <strong className="transaction-card-balance">{formatSek(tx.balance_ore)}</strong>
+                        </button>
+                        <div id={commentId} className="transaction-card-comment" hidden={!isExpanded}>
+                          <p>{tx.comment || 'Ingen kommentar'}</p>
+                          {isParent && (
+                            <button
+                              className={isDeleteConfirming ? 'comment-delete confirming' : 'comment-delete'}
+                              type="button"
+                              aria-label={isDeleteConfirming ? 'Bekräfta borttagning' : 'Ta bort transaktion'}
+                              title={isDeleteConfirming ? 'Bekräfta borttagning' : 'Ta bort transaktion'}
+                              onClick={() => requestTransactionDelete(tx.id)}
+                            >
+                              {isDeleteConfirming ? <FaCheck aria-hidden="true" /> : <FaTrashCan aria-hidden="true" />}
+                            </button>
+                          )}
+                        </div>
+                      </article>
+                    );
+                  })}
+                  {!transactions.length && (
+                    <p className="transaction-empty">Inga transaktioner för {selectedAccount === 'cash' ? 'kontantkontot' : 'fondkontot'} ännu.</p>
+                  )}
                 </div>
               </section>
             </main>
@@ -684,22 +633,6 @@ export function App() {
               </div>
             </form>
           </section>
-        </div>
-      )}
-      {commentPopover && (
-        <div
-          className={`transaction-comment-popover ${commentPopover.placement}`}
-          ref={commentPopoverRef}
-          role="dialog"
-          aria-live="polite"
-          aria-label="Transaktionskommentar"
-          style={{
-            top: commentPopover.top,
-            left: commentPopover.left,
-          }}
-        >
-          <p className="transaction-comment-label">Kommentar</p>
-          <p>{commentPopover.transaction.comment || 'Ingen kommentar'}</p>
         </div>
       )}
     </Shell>
@@ -874,6 +807,7 @@ function Balance({
   onSelect: (account: AccountType) => void;
 }) {
   const type = account === 'fund' ? 'fund' : 'cash';
+  const Icon = account === 'fund' ? FaChartLine : FaWallet;
 
   return (
     <button
@@ -882,7 +816,9 @@ function Balance({
       aria-pressed={active}
       onClick={() => onSelect(account)}
     >
-      <span className="balance-icon" aria-hidden="true" />
+      <span className="balance-icon" aria-hidden="true">
+        <Icon />
+      </span>
       <span>{label}</span>
       <strong>{formatSek(amountOre)}</strong>
     </button>
