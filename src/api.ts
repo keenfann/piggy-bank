@@ -41,7 +41,7 @@ export interface ImportResult {
 
 let csrfToken: string | null = null;
 let csrfPromise: Promise<string | null> | null = null;
-const REQUEST_TIMEOUT_MS = 5_000;
+const REQUEST_TIMEOUT_MS = 15_000;
 
 export async function ensureCsrf(): Promise<string | null> {
   if (csrfToken) return csrfToken;

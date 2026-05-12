@@ -35,6 +35,11 @@
   --radius: 8px;
   --radius-lg: 12px;
   --radius-xl: 24px;
+  --motion-fast: 140ms;
+  --motion-medium: 240ms;
+  --motion-slow: 420ms;
+  --motion-spring: cubic-bezier(.2, 1.36, .34, 1);
+  --motion-ease: cubic-bezier(.2, .8, .2, 1);
 }
 
 * {
@@ -76,12 +81,23 @@ button,
   font-size: 14px;
   font-weight: 700;
   line-height: 20px;
-  transition: transform .14s ease, box-shadow .14s ease, background-color .14s ease, border-color .14s ease, color .14s ease;
+  transform: translateY(0) scale(1);
+  transition:
+    transform var(--motion-fast) var(--motion-spring),
+    box-shadow var(--motion-fast) ease,
+    background-color var(--motion-fast) ease,
+    border-color var(--motion-fast) ease,
+    color var(--motion-fast) ease;
+}
+
+button:hover,
+.button:hover {
+  transform: translateY(-1px) scale(1.01);
 }
 
 button:active,
 .button:active {
-  transform: scale(.98);
+  transform: translateY(1px) scale(.97);
 }
 
 button:disabled,
@@ -108,6 +124,7 @@ textarea:focus-visible {
 
 .primary:hover {
   background: var(--primary-hover);
+  box-shadow: 0 8px 18px rgba(35, 103, 77, .24);
 }
 
 .secondary,
@@ -140,6 +157,11 @@ textarea:focus-visible {
   color: var(--error);
 }
 
+button:hover svg,
+.button:hover svg {
+  animation: icon-pop var(--motion-medium) var(--motion-spring);
+}
+
 .small {
   min-height: 34px;
   padding-inline: 10px;
@@ -169,6 +191,7 @@ textarea:focus-visible {
 .add-transaction-button:focus-visible {
   background: transparent;
   box-shadow: none;
+  transform: translateY(-1px) scale(1.08) rotate(5deg);
 }
 
 .brand-mark {
@@ -178,6 +201,11 @@ textarea:focus-visible {
   border-radius: 50%;
   background: transparent;
   box-shadow: none;
+}
+
+.app-view,
+.auth-wrap {
+  animation: view-rise-in var(--motion-slow) var(--motion-spring) both;
 }
 
 .app-shell {
@@ -298,6 +326,22 @@ h3 {
   box-shadow: var(--shadow-soft);
 }
 
+.motion-reveal {
+  animation: reveal-pop var(--motion-medium) var(--motion-spring) both;
+}
+
+.motion-strip {
+  animation: strip-slide-in var(--motion-medium) var(--motion-spring) both;
+}
+
+.section-swap {
+  animation: view-rise-in var(--motion-slow) var(--motion-spring) both;
+}
+
+.motion-list {
+  animation: list-swap-in var(--motion-medium) var(--motion-ease) both;
+}
+
 .add-child-panel {
   display: flex;
   flex-direction: column;
@@ -344,6 +388,7 @@ h3 {
 .auth-hero > .brand-mark {
   width: 96px;
   height: 96px;
+  animation: brand-bob 2.8s ease-in-out infinite;
 }
 
 .auth {
@@ -353,6 +398,7 @@ h3 {
   border-radius: var(--radius-lg);
   background: var(--surface-lowest);
   box-shadow: var(--shadow-lift);
+  animation: panel-pop-in var(--motion-slow) var(--motion-spring) both;
 }
 
 .auth > .brand-mark {
@@ -510,16 +556,22 @@ h3 {
   padding: 16px;
   background: var(--surface-bright);
   text-align: left;
-  transition: transform .14s ease, box-shadow .14s ease, background-color .14s ease, border-color .14s ease;
+  transition:
+    transform var(--motion-fast) var(--motion-spring),
+    box-shadow var(--motion-medium) ease,
+    background-color var(--motion-fast) ease,
+    border-color var(--motion-fast) ease;
 }
 
 .balance:hover {
   background: var(--surface-low);
+  transform: translateY(-2px) scale(1.01);
 }
 
 .balance.active {
   border-color: rgba(35, 103, 77, .58);
   box-shadow: 0 0 0 3px rgba(35, 103, 77, .12), 0 8px 22px rgba(35, 103, 77, .12);
+  animation: active-pop var(--motion-medium) var(--motion-spring);
 }
 
 .balance.fund.active {
@@ -597,12 +649,18 @@ textarea {
   background: var(--surface-lowest);
   color: var(--on-surface);
   box-shadow: 0 2px 8px rgba(35, 103, 77, .03);
+  transition:
+    border-color var(--motion-fast) ease,
+    box-shadow var(--motion-fast) ease,
+    transform var(--motion-fast) var(--motion-spring);
 }
 
 input:focus,
 select:focus,
 textarea:focus {
   border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(35, 103, 77, .1), 0 4px 12px rgba(35, 103, 77, .06);
+  transform: translateY(-1px);
 }
 
 input::placeholder,
@@ -662,6 +720,8 @@ textarea {
   border-radius: var(--radius);
   background: var(--surface-lowest);
   box-shadow: 0 18px 40px rgba(25, 28, 26, .14);
+  transform-origin: top right;
+  animation: popover-open var(--motion-medium) var(--motion-spring) both;
 }
 
 .menu-item {
@@ -677,6 +737,7 @@ textarea {
 .menu-item:hover,
 .menu-item:focus-visible {
   background: var(--surface-low);
+  transform: translateX(2px);
 }
 
 .toolbar {
@@ -720,6 +781,7 @@ textarea {
   background: var(--surface-lowest);
   color: var(--on-surface);
   box-shadow: 0 4px 14px rgba(35, 103, 77, .08);
+  animation: active-pop var(--motion-medium) var(--motion-spring);
 }
 
 .child-tab {
@@ -760,7 +822,7 @@ textarea {
   color: var(--on-surface);
   font-weight: 700;
   box-shadow: 0 18px 42px rgba(25, 28, 26, .14);
-  animation: message-popover-in .2s ease-out;
+  animation: message-popover-in var(--motion-medium) var(--motion-spring);
 }
 
 .message-popover.error {
@@ -773,6 +835,18 @@ textarea {
   border-color: rgba(35, 103, 77, .18);
   background: #eefbf2;
   color: var(--primary);
+}
+
+.is-auth .message-popover {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  bottom: auto;
+  left: 20px;
+  width: min(390px, calc(100vw - 40px));
+  max-width: none;
+  margin: 0 auto;
+  box-shadow: 0 8px 20px rgba(25, 28, 26, .1);
 }
 
 .history-heading {
@@ -794,12 +868,151 @@ textarea {
 @keyframes message-popover-in {
   from {
     opacity: 0;
-    transform: translateY(-8px);
+    transform: translateY(-12px) scale(.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes view-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes panel-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(.97);
+  }
+
+  72% {
+    transform: translateY(-2px) scale(1.006);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes reveal-pop {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes strip-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes list-swap-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
   }
 
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes active-pop {
+  0% {
+    transform: scale(.98);
+  }
+
+  62% {
+    transform: scale(1.025);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes icon-pop {
+  0%,
+  100% {
+    transform: rotate(0) scale(1);
+  }
+
+  45% {
+    transform: rotate(-8deg) scale(1.16);
+  }
+
+  70% {
+    transform: rotate(6deg) scale(1.06);
+  }
+}
+
+@keyframes popover-open {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(.94);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes brand-bob {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0);
+  }
+
+  50% {
+    transform: translateY(-5px) rotate(-2deg);
+  }
+}
+
+@keyframes button-pulse {
+  0%,
+  100% {
+    box-shadow: 0 4px 12px rgba(35, 103, 77, .16);
+  }
+
+  50% {
+    box-shadow: 0 0 0 5px rgba(35, 103, 77, .12), 0 8px 18px rgba(35, 103, 77, .18);
+  }
+}
+
+@keyframes comment-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scaleY(.92);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scaleY(1);
   }
 }
 
@@ -813,7 +1026,25 @@ textarea {
   border-radius: 8px;
   background: var(--surface-lowest);
   outline: none;
-  transition: background-color .14s ease, border-color .14s ease, box-shadow .14s ease;
+  transform: translateY(0);
+  transition:
+    background-color var(--motion-fast) ease,
+    border-color var(--motion-fast) ease,
+    box-shadow var(--motion-fast) ease,
+    transform var(--motion-fast) var(--motion-spring);
+  animation: reveal-pop var(--motion-medium) var(--motion-spring) both;
+}
+
+.transaction-card:nth-child(2) {
+  animation-delay: 35ms;
+}
+
+.transaction-card:nth-child(3) {
+  animation-delay: 70ms;
+}
+
+.transaction-card:nth-child(n + 4) {
+  animation-delay: 105ms;
 }
 
 .transaction-card:hover,
@@ -821,6 +1052,10 @@ textarea {
 .transaction-card.expanded {
   border-color: rgba(35, 103, 77, .28);
   background: var(--surface-low);
+}
+
+.transaction-card:hover {
+  transform: translateY(-2px);
 }
 
 .transaction-card:focus-within {
@@ -846,6 +1081,7 @@ textarea {
 .transaction-card-toggle:focus-visible {
   background: transparent;
   box-shadow: none;
+  transform: none;
 }
 
 .transaction-card-date,
@@ -867,13 +1103,43 @@ textarea {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
+  overflow: hidden;
+  max-height: 160px;
   border-top: 1px solid var(--outline-variant);
   padding: 6px 12px 8px;
   color: var(--on-surface);
+  opacity: 1;
+  transform: translateY(0) scaleY(1);
+  transform-origin: top;
+  transition:
+    max-height var(--motion-medium) var(--motion-ease),
+    padding var(--motion-medium) var(--motion-ease),
+    border-color var(--motion-medium) ease,
+    opacity var(--motion-fast) ease,
+    transform var(--motion-medium) var(--motion-spring);
+}
+
+.transaction-card-comment[aria-hidden="true"] {
+  max-height: 0;
+  border-top-color: transparent;
+  padding-top: 0;
+  padding-bottom: 0;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-6px) scaleY(.94);
+}
+
+.transaction-card-comment[aria-hidden="true"] p,
+.transaction-card-comment[aria-hidden="true"] .comment-delete {
+  visibility: hidden;
 }
 
 .transaction-card-comment[hidden] {
   display: none;
+}
+
+.transaction-card.expanded .transaction-card-comment {
+  animation: comment-reveal var(--motion-medium) var(--motion-spring) both;
 }
 
 .transaction-card-comment p {
@@ -908,6 +1174,10 @@ textarea {
 .comment-delete:focus-visible,
 .comment-delete.confirming {
   background: var(--error-container);
+}
+
+.comment-delete.confirming {
+  animation: active-pop var(--motion-medium) var(--motion-spring);
 }
 
 .comment-delete.confirming svg {
@@ -989,6 +1259,7 @@ textarea {
   padding: 18px;
   background: rgba(25, 28, 26, .4);
   backdrop-filter: blur(8px);
+  animation: backdrop-fade-in var(--motion-medium) ease both;
 }
 
 .modal {
@@ -1000,6 +1271,8 @@ textarea {
   padding: 0;
   border-radius: var(--radius-xl);
   box-shadow: 0 -8px 32px rgba(35, 103, 77, .12);
+  transform-origin: center;
+  animation: modal-pop-in var(--motion-slow) var(--motion-spring) both;
 }
 
 .modal-heading {
@@ -1025,6 +1298,48 @@ textarea {
   margin: 8px -24px -24px;
   padding: 16px 24px 24px;
   background: var(--surface-bright);
+}
+
+.save-transaction-button:disabled {
+  animation: button-pulse 1s ease-in-out infinite;
+}
+
+@keyframes backdrop-fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modal-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(.94);
+  }
+
+  68% {
+    transform: translateY(-3px) scale(1.01);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes modal-sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(34px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @media (min-width: 900px) {
@@ -1206,6 +1521,8 @@ textarea {
     width: 100%;
     max-height: calc(100vh - 44px);
     border-radius: 24px 24px 0 0;
+    transform-origin: bottom center;
+    animation-name: modal-sheet-in;
   }
 
   .modal::before {
@@ -1218,4 +1535,29 @@ textarea {
     background: var(--outline-variant);
   }
 
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+
+  button:hover,
+  .button:hover,
+  .balance:hover,
+  .transaction-card:hover,
+  input:focus,
+  select:focus,
+  textarea:focus,
+  .add-transaction-button:hover,
+  .add-transaction-button:focus-visible,
+  .menu-item:hover,
+  .menu-item:focus-visible {
+    transform: none;
+  }
 }

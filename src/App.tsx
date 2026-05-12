@@ -361,15 +361,15 @@ export function App() {
     setError(nextError instanceof Error ? nextError.message : 'Något gick fel');
   }
 
-  if (view === 'loading') return <Shell><div className="panel">Laddar...</div></Shell>;
+  if (view === 'loading') return <Shell><div className="panel app-view app-view-loading">Laddar...</div></Shell>;
   if (view === 'setup') {
     return (
       <Shell>
+        <Message message={flashMessage} />
         <AuthPanel title="Skapa föräldrakonto" description="Kom igång med ett tryggt sparflöde för barnens konton." onSubmit={submitSetup}>
           <TextInput label="Användarnamn" value={setupForm.username} onChange={(value) => setSetupForm({ ...setupForm, username: value })} />
           <TextInput label="Lösenord" type="password" value={setupForm.password} onChange={(value) => setSetupForm({ ...setupForm, password: value })} />
           <button className="primary">Kom igång</button>
-          <Message message={flashMessage} />
         </AuthPanel>
       </Shell>
     );
@@ -377,11 +377,11 @@ export function App() {
   if (view === 'login') {
     return (
       <Shell>
+        <Message message={flashMessage} />
         <AuthPanel title="Logga in" description="Välkommen tillbaka till barnens sparöversikt." onSubmit={submitLogin}>
           <TextInput label="Användarnamn" value={loginForm.username} onChange={(value) => setLoginForm({ ...loginForm, username: value })} />
           <TextInput label="Lösenord" type="password" value={loginForm.password} onChange={(value) => setLoginForm({ ...loginForm, password: value })} />
           <button className="primary">Logga in</button>
-          <Message message={flashMessage} />
         </AuthPanel>
       </Shell>
     );
@@ -390,7 +390,7 @@ export function App() {
   const isParent = user?.role === 'parent';
   const showChildPicker = children.length > 0 && (appSection === 'dashboard' || isParent);
   const childPicker = showChildPicker ? (
-    <section className="toolbar child-picker" aria-label="Barn">
+    <section className="toolbar child-picker motion-strip" aria-label="Barn">
       {children.map((child) => (
         <button
           key={child.id}
@@ -424,7 +424,7 @@ export function App() {
       <Message message={flashMessage} />
       {childPicker}
       {appSection === 'settings' ? (
-        <>
+        <div key="settings" className="section-swap section-swap-settings">
           <div className="view-heading">
             <div>
               <p className="eyebrow">Inställningar</p>
@@ -466,7 +466,7 @@ export function App() {
                           />
                         </label>
                         {photoDataUrl && (
-                          <img className="photo-preview" src={photoDataUrl} alt="Förhandsvisning av vald bild" />
+                          <img className="photo-preview motion-reveal" src={photoDataUrl} alt="Förhandsvisning av vald bild" />
                         )}
                         <button className="secondary">Spara bild</button>
                       </form>
@@ -487,7 +487,7 @@ export function App() {
                     <button className="primary" type="button" onClick={commitImport}>Importera</button>
                   </div>
                   {importResult && (
-                    <div className="result">
+                    <div className="result motion-reveal">
                       <strong>{importResult.imported} giltiga rader</strong>
                       {importResult.errors.map((row) => (
                         <p key={`${row.row}-${row.error}`}>Rad {row.row}: {row.error}</p>
@@ -501,9 +501,9 @@ export function App() {
             <section className="panel">Det finns inga barninställningar för barnkonton.</section>
           )}
           <p className="settings-version">Version {__APP_VERSION__}</p>
-        </>
+        </div>
       ) : (
-        <>
+        <div key="dashboard" className="section-swap section-swap-dashboard">
           <div className="view-heading">
             <div>
               <p className="eyebrow">Översikt</p>
@@ -543,7 +543,7 @@ export function App() {
                   {selectedAccount === 'cash' ? <FaWallet aria-hidden="true" /> : <FaChartLine aria-hidden="true" />}
                   <span>Historik</span>
                 </h3>
-                <div className="transaction-list">
+                <div key={`${selectedChild.id}-${selectedAccount}`} className="transaction-list motion-list">
                   {transactions.map((tx) => {
                     const isExpanded = expandedTransactionId === tx.id;
                     const isDeleteConfirming = confirmDeleteId === tx.id;
@@ -568,7 +568,12 @@ export function App() {
                           <strong className={`transaction-card-amount amount ${tx.type}`}>{formatTransactionAmount(tx)}</strong>
                           <strong className="transaction-card-balance">{formatSek(tx.balance_ore)}</strong>
                         </button>
-                        <div id={commentId} className="transaction-card-comment" hidden={!isExpanded}>
+                        <div
+                          id={commentId}
+                          className="transaction-card-comment"
+                          aria-hidden={!isExpanded}
+                          hidden={!isExpanded}
+                        >
                           <p>{tx.comment || 'Ingen kommentar'}</p>
                           {isParent && (
                             <button
@@ -595,7 +600,7 @@ export function App() {
             <section className="panel">Öppna inställningar för att skapa ett barn.</section>
           )}
 
-        </>
+        </div>
       )}
       {isParent && selectedChild && txModalOpen && (
         <div className="modal-backdrop" role="presentation" onClick={() => setTxModalOpen(false)}>
@@ -629,7 +634,7 @@ export function App() {
               <TextInput label="Kommentar" value={txForm.comment} onChange={(value) => setTxForm({ ...txForm, comment: value })} />
               <div className="actions">
                 <button className="secondary" type="button" onClick={() => setTxModalOpen(false)}>Avbryt</button>
-                <button className="primary" disabled={savingTransaction}>{savingTransaction ? 'Sparar...' : 'Spara'}</button>
+                <button className="primary save-transaction-button" disabled={savingTransaction}>{savingTransaction ? 'Sparar...' : 'Spara'}</button>
               </div>
             </form>
           </section>
