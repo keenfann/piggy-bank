@@ -4,7 +4,6 @@ Piggy Bank är implementerad som en TypeScript single-package-app med React/Vite
 
 ## Kvarvarande förbättringar efter v1
 - Ikonuppsättning i flera PNG-storlekar för bredare PWA-stöd.
-- Automatisk schemalagd JSON-backup till disk.
 - Redigeringsvy för befintliga transaktioner i UI.
 - Valfri import från JSON-backup.
 

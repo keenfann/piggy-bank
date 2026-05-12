@@ -8,6 +8,7 @@
 ## Miljövariabler
 - `DB_PATH=/data/piggy-bank.sqlite`
 - `UPLOAD_DIR=/data/uploads`
+- `TRANSACTION_BACKUP_DIR=/data/backups` (valfri; standard är `backups` bredvid SQLite-filen)
 - `PORT=4287`
 - `HOST=0.0.0.0`
 - `SESSION_SECRET` (valfri; annars skapas och sparas en hemlighet i datakatalogen)
@@ -18,4 +19,4 @@
 3. Öppna `http://<nas>:4287` och skapa första föräldrakontot.
 4. Health check finns på `/api/health`.
 
-Migrationer körs automatiskt vid start. Säkerhetskopiera `./data` innan uppgradering.
+Migrationer körs automatiskt vid start. Appen skriver en veckovis JSON-backup av alla transaktioner till `TRANSACTION_BACKUP_DIR` och behåller filer för det senaste året. Säkerhetskopiera `./data` innan uppgradering.

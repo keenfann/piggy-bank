@@ -5,6 +5,7 @@ import session from 'express-session';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { resolveTransactionBackupDir, startWeeklyTransactionBackups } from './backup.js';
 import { createDatabase, resolveDbPath } from './db.js';
 import SqliteSessionStore from './session-store.js';
 import { csvEscape, isIsoDate, normalizeAccount, normalizeType, validateTransactionsCsv } from './csv.js';
@@ -267,15 +268,7 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
   });
 
   app.get('/api/export.json', requireParent(db), (_req, res) => {
-    const children = db.prepare('SELECT * FROM children ORDER BY name COLLATE NOCASE').all<ChildRow>();
-    res.json({
-      version: 1,
-      exportedAt: nowIso(),
-      children: children.map((child) => ({
-        ...buildChildSummary(db, child),
-        transactions: listTransactions(db, child.id, null),
-      })),
-    });
+    res.json(buildJsonExport(db));
   });
 
   app.get('/api/export/transactions.csv', requireParent(db), (_req, res) => {
@@ -343,6 +336,18 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
   });
 
   return app;
+}
+
+export function buildJsonExport(db: AppDb) {
+  const children = db.prepare('SELECT * FROM children ORDER BY name COLLATE NOCASE').all<ChildRow>();
+  return {
+    version: 1,
+    exportedAt: nowIso(),
+    children: children.map((child) => ({
+      ...buildChildSummary(db, child),
+      transactions: listTransactions(db, child.id, null),
+    })),
+  };
 }
 
 function requireUser(db: AppDb) {
@@ -571,8 +576,12 @@ function must<T>(value: T | undefined | null): T {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const db = createDatabase();
+  const dbPath = resolveDbPath();
+  const db = createDatabase(dbPath);
   const app = createApp({ db });
+  const stopTransactionBackups = startWeeklyTransactionBackups(() => buildJsonExport(db), {
+    backupDir: resolveTransactionBackupDir(dbPath),
+  });
   const port = Number(process.env.PORT) || 4287;
   const host = process.env.HOST || '0.0.0.0';
   const server = app.listen(port, host, () => console.log(`Piggy Bank kör på http://${host}:${port}`));
@@ -581,6 +590,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const shutdown = (signal: NodeJS.Signals) => {
     if (isShuttingDown) return;
     isShuttingDown = true;
+    stopTransactionBackups();
     server.close((error) => {
       try {
         db.close();

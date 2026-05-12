@@ -8,7 +8,7 @@ Svensk, self-hostad PWA för att hantera barns sparande (kontant och fond) med r
 - Föräldrar kan skapa barn, barninloggningar och transaktioner.
 - Barn kan bara läsa sitt eget saldo och sin egen historik.
 - Konton per barn: kontant och fond.
-- JSON-backup, CSV-export och tvåstegs CSV-import.
+- Veckovis JSON-backup till disk, CSV-export och tvåstegs CSV-import.
 - SQLite med migrationer, sessionslagring och CSRF-skydd.
 - Mobil-först PWA med service worker.
 - Docker image publiceras till GHCR vid push till `main`.
@@ -34,4 +34,4 @@ Använd `compose.sample.yml` som mall:
 docker compose -f compose.sample.yml up -d
 ```
 
-Standardvolymen `./data:/data` innehåller SQLite-databasen, uploads och sessionshemlighet. Säkerhetskopiera den katalogen innan uppgraderingar.
+Standardvolymen `./data:/data` innehåller SQLite-databasen, uploads, sessionshemlighet och veckovisa transaktionsbackuper. Backuperna skrivs till `TRANSACTION_BACKUP_DIR` eller `backups` bredvid SQLite-filen och behålls i ett år. Säkerhetskopiera den katalogen innan uppgraderingar.
