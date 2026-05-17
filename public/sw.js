@@ -1,5 +1,5 @@
 const CACHE_NAME = 'piggy-bank-shell-v1';
-const SHELL_ASSETS = ['/', '/manifest.webmanifest', '/piggy-bank.svg'];
+const SHELL_ASSETS = ['/', '/manifest.webmanifest', '/icon-192.png', '/icon.png', '/favicon.ico'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(SHELL_ASSETS)));

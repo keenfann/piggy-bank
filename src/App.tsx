@@ -842,7 +842,7 @@ function ChildAvatar({ child, size }: { child: Child; size: 'small' | 'large' })
 }
 
 function BrandMark() {
-  return <img className="brand-mark" src="/piggy-bank.svg" alt="" />;
+  return <img className="brand-mark" src="/icon-192.png" alt="" />;
 }
 
 function Message({ message }: { message: { type: 'error' | 'notice'; text: string } | null }) {
