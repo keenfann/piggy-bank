@@ -121,6 +121,23 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
     return res.status(204).end();
   });
 
+  app.post('/api/parents', requireParent(db), async (req, res) => {
+    const username = cleanText(req.body?.username);
+    const password = String(req.body?.password || '');
+    const validation = validateCredentials(username, password);
+    if (validation) return res.status(400).json({ error: validation });
+    const existing = db.prepare('SELECT id FROM users WHERE username = ?').get<{ id: number }>(username);
+    if (existing) return res.status(409).json({ error: 'Användarnamnet används redan' });
+
+    const now = nowIso();
+    const hash = await bcrypt.hash(password, 10);
+    const result = db
+      .prepare('INSERT INTO users (username, password_hash, role, child_id, created_at, updated_at) VALUES (?, ?, ?, NULL, ?, ?)')
+      .run(username, hash, 'parent', now, now);
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get<UserRow>(Number(result.lastInsertRowid));
+    return res.status(201).json({ user: toAuthUser(must(user)) });
+  });
+
   app.get('/api/children', requireUser(db), (req, res) => {
     const user = requireCurrentUser(db, req);
     const children =

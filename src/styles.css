@@ -342,30 +342,35 @@ h3 {
   animation: list-swap-in var(--motion-medium) var(--motion-ease) both;
 }
 
-.add-child-panel {
+.add-child-panel,
+.add-parent-panel {
   display: flex;
   flex-direction: column;
 }
 
-.add-child-form {
+.add-child-form,
+.add-parent-form {
   flex: 1;
   display: flex;
   flex-direction: column;
 }
 
-.add-child-form label {
+.add-child-form label,
+.add-parent-form label {
   flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.add-child-form input {
+.add-child-form input,
+.add-parent-form input {
   height: 48px;
   min-height: 48px;
 }
 
-.add-child-form button {
+.add-child-form button,
+.add-parent-form button {
   margin-top: auto;
 }
 

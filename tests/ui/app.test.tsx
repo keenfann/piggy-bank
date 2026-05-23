@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../../src/App';
@@ -55,7 +55,42 @@ describe('App', () => {
     expect(screen.getByDisplayValue('Present')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Användare parent' }));
     await userEvent.click(screen.getByRole('menuitem', { name: 'Inställningar' }));
+    expect(screen.getByRole('heading', { name: 'Förälder' })).toBeInTheDocument();
     expect(screen.getByText('Version 1.0.0')).toBeInTheDocument();
+  });
+
+  it('creates another parent from settings', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith('/api/csrf')) return json({ csrfToken: 'token' });
+      if (url.endsWith('/api/setup/status')) return json({ needsSetup: false });
+      if (url.endsWith('/api/auth/me')) return json({ user: { id: 1, username: 'parent', role: 'parent', childId: null }, csrfToken: 'token' });
+      if (url.endsWith('/api/children')) return json({ children: [{ id: 1, name: 'Anna', photoUrl: null, cashBalanceOre: 1000, fundBalanceOre: 2000, childLogin: null }] });
+      if (url.includes('/api/children/1/transactions')) return json({ transactions: [] });
+      if (url.endsWith('/api/parents') && init?.method === 'POST') {
+        return json({ user: { id: 2, username: 'partner', role: 'parent', childId: null } }, 201);
+      }
+      return json({});
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<App />);
+    await screen.findByRole('heading', { name: 'Annas sparande' });
+    await userEvent.click(screen.getByRole('button', { name: 'Användare parent' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Inställningar' }));
+
+    const parentPanel = screen.getByRole('heading', { name: 'Förälder' }).closest('section');
+    expect(parentPanel).not.toBeNull();
+    const parentForm = within(parentPanel!);
+    await userEvent.type(parentForm.getByLabelText('Användarnamn'), 'partner');
+    await userEvent.type(parentForm.getByLabelText('Lösenord'), 'partner123');
+    await userEvent.click(parentForm.getByRole('button', { name: 'Lägg till förälder' }));
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/parents', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ username: 'partner', password: 'partner123' }),
+    }));
+    expect(await screen.findByText('Föräldern partner skapades.')).toBeInTheDocument();
   });
 
   it('shows delete confirmation inside the unfolded transaction comment', async () => {

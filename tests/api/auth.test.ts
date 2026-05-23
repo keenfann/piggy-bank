@@ -42,4 +42,45 @@ describe('auth and setup', () => {
       expect(body.user).toBeNull();
     });
   });
+
+  it('lets a parent create another parent with the same access', async () => {
+    server = createTestServer();
+    await server.setupParent();
+    const response = await server.post('/api/parents', { username: 'partner', password: 'partner123' });
+
+    expect(response.status).toBe(201);
+    expect(response.body.user).toMatchObject({ username: 'partner', role: 'parent', childId: null });
+
+    const row = server.db.prepare('SELECT username, password_hash, role, child_id FROM users WHERE username = ?').get<{
+      username: string;
+      password_hash: string;
+      role: string;
+      child_id: number | null;
+    }>('partner');
+    expect(row?.role).toBe('parent');
+    expect(row?.child_id).toBeNull();
+    expect(row?.password_hash).not.toBe('partner123');
+
+    await server.post('/api/auth/logout', {});
+    expect((await server.post('/api/auth/login', { username: 'partner', password: 'partner123' })).status).toBe(200);
+    expect((await server.post('/api/children', { name: 'Anna' })).status).toBe(201);
+  });
+
+  it('rejects duplicate parent usernames', async () => {
+    server = createTestServer();
+    await server.setupParent();
+
+    expect((await server.post('/api/parents', { username: 'parent', password: 'partner123' })).status).toBe(409);
+  });
+
+  it('blocks child users from creating parents', async () => {
+    server = createTestServer();
+    await server.setupParent();
+    const child = await server.post('/api/children', { name: 'Anna' });
+    expect((await server.post(`/api/children/${child.body.child.id}/login`, { username: 'anna', password: 'anna12345' })).status).toBe(201);
+    await server.post('/api/auth/logout', {});
+    expect((await server.post('/api/auth/login', { username: 'anna', password: 'anna12345' })).status).toBe(200);
+
+    expect((await server.post('/api/parents', { username: 'partner', password: 'partner123' })).status).toBe(403);
+  });
 });

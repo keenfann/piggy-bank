@@ -41,6 +41,7 @@ export function App() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [setupForm, setSetupForm] = useState({ username: 'parent', password: '' });
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
+  const [parentForm, setParentForm] = useState({ username: '', password: '' });
   const [childName, setChildName] = useState('');
   const [txForm, setTxForm] = useState<TxForm>(emptyTxForm());
   const [childLogin, setChildLogin] = useState({ username: '', password: '' });
@@ -197,6 +198,18 @@ export function App() {
       await loadChildren();
       setSelectedChildId(data.child.id);
       setNotice('Barnet skapades.');
+    });
+  }
+
+  async function addParent(event: FormEvent) {
+    event.preventDefault();
+    await run(async () => {
+      const data = await apiFetch<{ user: User }>('/api/parents', {
+        method: 'POST',
+        body: JSON.stringify(parentForm),
+      });
+      setParentForm({ username: '', password: '' });
+      setNotice(`Föräldern ${data.user.username} skapades.`);
     });
   }
 
@@ -440,6 +453,15 @@ export function App() {
                   <form className="stack add-child-form" onSubmit={addChild}>
                     <TextInput label="Nytt barn" value={childName} onChange={setChildName} />
                     <button className="secondary">Lägg till</button>
+                  </form>
+                </section>
+
+                <section className="panel add-parent-panel">
+                  <h3>Förälder</h3>
+                  <form className="stack add-parent-form" onSubmit={addParent}>
+                    <TextInput label="Användarnamn" value={parentForm.username} onChange={(value) => setParentForm({ ...parentForm, username: value })} />
+                    <TextInput label="Lösenord" type="password" value={parentForm.password} onChange={(value) => setParentForm({ ...parentForm, password: value })} />
+                    <button className="secondary">Lägg till förälder</button>
                   </form>
                 </section>
 

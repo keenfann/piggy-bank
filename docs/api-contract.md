@@ -11,6 +11,7 @@ Alla muterande anrop kräver `x-csrf-token` från `GET /api/csrf` och en aktiv c
 - `POST /api/auth/logout`
 - `GET /api/auth/me`
 - `POST /api/auth/change-password`
+- `POST /api/parents` (förälder): `{ username, password }`
 
 ## Barn
 - `GET /api/children`
