@@ -20,12 +20,13 @@ test('first-run setup, parent transaction, child scoping, and import', async ({ 
   await openSettings(page);
   await expect(page.getByRole('heading', { name: 'Hantera appen' })).toBeVisible();
   await page.getByLabel('Nytt barn').fill('Anna');
-  await page.getByRole('button', { name: 'Lägg till' }).click();
+  await page.getByRole('button', { name: 'Lägg till', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Anna' })).toBeVisible();
 
-  await page.getByLabel('Användarnamn').fill('anna');
-  await page.getByLabel('Nytt lösenord').fill('anna12345');
-  await page.getByRole('button', { name: 'Spara inloggning' }).click();
+  const childLoginPanel = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Barninloggning' }) });
+  await childLoginPanel.getByLabel('Användarnamn').fill('anna');
+  await childLoginPanel.getByLabel('Nytt lösenord').fill('anna12345');
+  await childLoginPanel.getByRole('button', { name: 'Spara inloggning' }).click();
   await expect(page.getByText('Barninloggningen sparades.')).toBeVisible();
 
   await openDashboard(page);
