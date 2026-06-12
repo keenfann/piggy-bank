@@ -45,6 +45,7 @@ describe('App', () => {
     render(<App />);
     expect(await screen.findByRole('heading', { name: 'Annas sparande' })).toBeInTheDocument();
     expect(screen.getByText('10,00 kr')).toBeInTheDocument();
+    expect(screen.getByLabelText('Totalt sparande 30,00 kr')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Historik' })).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: /Fond20,00/ }));
     expect(await screen.findByRole('heading', { name: 'Historik' })).toBeInTheDocument();
@@ -91,6 +92,47 @@ describe('App', () => {
       body: JSON.stringify({ username: 'partner', password: 'partner123' }),
     }));
     expect(await screen.findByText('Föräldern partner skapades.')).toBeInTheDocument();
+  });
+
+  it('refreshes balance cards when transaction history is reloaded', async () => {
+    let childrenRequests = 0;
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith('/api/csrf')) return json({ csrfToken: 'token' });
+      if (url.endsWith('/api/setup/status')) return json({ needsSetup: false });
+      if (url.endsWith('/api/auth/me')) return json({ user: { id: 1, username: 'parent', role: 'parent', childId: null }, csrfToken: 'token' });
+      if (url.endsWith('/api/children')) {
+        childrenRequests += 1;
+        const updated = childrenRequests > 2;
+        return json({
+          children: [{
+            id: 1,
+            name: 'Anna',
+            photoUrl: null,
+            cashBalanceOre: 1000,
+            fundBalanceOre: updated ? 500 : 0,
+            childLogin: null,
+          }],
+        });
+      }
+      if (url.endsWith('/api/children/1/transactions?account=fund')) {
+        return json({
+          transactions: [{ id: 11, child_id: 1, account_type: 'fund', type: 'deposit', amount_ore: 500, balance_ore: 500, date: '2026-06-01', comment: 'Extern insättning' }],
+        });
+      }
+      if (url.includes('/api/children/1/transactions')) return json({ transactions: [] });
+      return json({});
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<App />);
+    expect(await screen.findByLabelText('Totalt sparande 10,00 kr')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /Fond0,00/ }));
+
+    expect(await screen.findByText('Extern insättning')).toBeInTheDocument();
+    expect(await screen.findByLabelText('Totalt sparande 15,00 kr')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Fond5,00/ })).toBeInTheDocument();
   });
 
   it('shows delete confirmation inside the unfolded transaction comment', async () => {

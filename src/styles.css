@@ -627,6 +627,26 @@ h3 {
   color: var(--secondary);
 }
 
+.balance.total {
+  grid-column: 1 / -1;
+  cursor: default;
+  background: rgba(255, 255, 255, .94);
+}
+
+.balance.total:hover {
+  background: rgba(255, 255, 255, .94);
+  transform: none;
+}
+
+.balance.total .balance-icon {
+  background: rgba(25, 28, 26, .08);
+  color: var(--on-surface);
+}
+
+.balance.total strong {
+  color: var(--on-surface);
+}
+
 label,
 .stack {
   display: grid;

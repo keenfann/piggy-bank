@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
-import { FaChartLine, FaCheck, FaTrashCan, FaWallet } from 'react-icons/fa6';
+import { FaChartLine, FaCheck, FaPiggyBank, FaTrashCan, FaWallet } from 'react-icons/fa6';
 import { apiFetch, ensureCsrf, resetCsrf, type AccountType, type Child, type ImportResult, type Transaction, type TransactionType, type User } from './api';
 
 declare const __APP_VERSION__: string;
@@ -61,7 +61,7 @@ export function App() {
   useEffect(() => {
     if (selectedChild) {
       setSelectedChildId(selectedChild.id);
-      loadTransactions(selectedChild.id, selectedAccount);
+      loadDashboardData(selectedChild.id, selectedAccount);
       setChildLogin({ username: selectedChild.childLogin?.username || '', password: '' });
       setPhotoDataUrl('');
       setExpandedTransactionId(null);
@@ -134,15 +134,20 @@ export function App() {
     }
   }
 
-  async function loadChildren() {
-    const data = await apiFetch<{ children: Child[] }>('/api/children');
+  async function loadChildren(options: RequestInit = {}) {
+    const data = await apiFetch<{ children: Child[] }>('/api/children', options);
     setChildren(data.children);
     setSelectedChildId((current) => current || data.children[0]?.id || null);
   }
 
-  async function loadTransactions(childId: number, account = selectedAccount) {
-    const data = await apiFetch<{ transactions: Transaction[] }>(`/api/children/${childId}/transactions?account=${account}`);
-    setTransactions(data.transactions);
+  async function loadDashboardData(childId: number, account = selectedAccount, options: RequestInit = {}) {
+    const [childrenData, transactionsData] = await Promise.all([
+      apiFetch<{ children: Child[] }>('/api/children', options),
+      apiFetch<{ transactions: Transaction[] }>(`/api/children/${childId}/transactions?account=${account}`, options),
+    ]);
+    setChildren(childrenData.children);
+    setSelectedChildId((current) => current || childrenData.children[0]?.id || null);
+    setTransactions(transactionsData.transactions);
   }
 
   async function submitSetup(event: FormEvent) {
@@ -233,13 +238,7 @@ export function App() {
           }),
         });
         setTxForm(emptyTxForm());
-        const [childrenData, transactionsData] = await Promise.all([
-          apiFetch<{ children: Child[] }>('/api/children', { signal: controller.signal }),
-          apiFetch<{ transactions: Transaction[] }>(`/api/children/${selectedChild.id}/transactions?account=${selectedAccount}`, { signal: controller.signal }),
-        ]);
-        setChildren(childrenData.children);
-        setSelectedChildId((current) => current || childrenData.children[0]?.id || null);
-        setTransactions(transactionsData.transactions);
+        await loadDashboardData(selectedChild.id, selectedAccount, { signal: controller.signal });
         setTxModalOpen(false);
         setNotice('Transaktionen sparades.');
       });
@@ -258,8 +257,7 @@ export function App() {
     if (!selectedChild) return;
     await run(async () => {
       await apiFetch(`/api/transactions/${id}`, { method: 'DELETE' });
-      await loadChildren();
-      await loadTransactions(selectedChild.id);
+      await loadDashboardData(selectedChild.id);
       setExpandedTransactionId((current) => current === id ? null : current);
       resetDeleteConfirmation();
       setNotice('Transaktionen togs bort.');
@@ -354,8 +352,11 @@ export function App() {
         body: JSON.stringify({ csv }),
       });
       setImportResult(result);
-      await loadChildren();
-      if (selectedChild) await loadTransactions(selectedChild.id);
+      if (selectedChild) {
+        await loadDashboardData(selectedChild.id);
+      } else {
+        await loadChildren();
+      }
       setNotice(`${result.imported} rader importerades.`);
     });
   }
@@ -556,6 +557,7 @@ export function App() {
                       active={selectedAccount === 'fund'}
                       onSelect={setSelectedAccount}
                     />
+                    <TotalBalance amountOre={selectedChild.cashBalanceOre + selectedChild.fundBalanceOre} />
                   </div>
                 </div>
               </section>
@@ -849,6 +851,18 @@ function Balance({
       <span>{label}</span>
       <strong>{formatSek(amountOre)}</strong>
     </button>
+  );
+}
+
+function TotalBalance({ amountOre }: { amountOre: number }) {
+  return (
+    <div className="balance total" aria-label={`Totalt sparande ${formatSek(amountOre)}`}>
+      <span className="balance-icon" aria-hidden="true">
+        <FaPiggyBank />
+      </span>
+      <span>Totalt</span>
+      <strong>{formatSek(amountOre)}</strong>
+    </div>
   );
 }
 
