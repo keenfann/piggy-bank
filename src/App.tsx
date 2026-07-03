@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { FaChartLine, FaCheck, FaPen, FaPiggyBank, FaTrashCan, FaWallet } from 'react-icons/fa6';
-import { apiFetch, ensureCsrf, resetCsrf, type AccountType, type Child, type ImportResult, type Transaction, type TransactionType, type User } from './api';
+import { apiFetch, ensureCsrf, resetCsrf, type AccountType, type Allowance, type AllowanceApplyResult, type Child, type ImportResult, type Transaction, type TransactionType, type User } from './api';
 
 declare const __APP_VERSION__: string;
 
@@ -15,12 +15,37 @@ interface TxForm {
   comment: string;
 }
 
+interface AllowanceForm {
+  account: AccountType;
+  amount: string;
+  weekday: WeekdayValue;
+  enabled: boolean;
+}
+
+type WeekdayValue = '1' | '2' | '3' | '4' | '5' | '6' | '0';
+
+const WEEKDAYS: Array<{ value: WeekdayValue; label: string }> = [
+  { value: '1', label: 'Måndag' },
+  { value: '2', label: 'Tisdag' },
+  { value: '3', label: 'Onsdag' },
+  { value: '4', label: 'Torsdag' },
+  { value: '5', label: 'Fredag' },
+  { value: '6', label: 'Lördag' },
+  { value: '0', label: 'Söndag' },
+];
+
 const emptyTxForm = (): TxForm => ({
   account: 'cash',
   type: 'deposit',
   amount: '',
   date: new Date().toISOString().slice(0, 10),
   comment: '',
+});
+const emptyAllowanceForm = (): AllowanceForm => ({
+  account: 'cash',
+  amount: '',
+  weekday: weekdayFromDate(new Date().toISOString().slice(0, 10)),
+  enabled: true,
 });
 const TRANSACTION_SAVE_TIMEOUT_MS = 6_000;
 
@@ -45,6 +70,7 @@ export function App() {
   const [parentForm, setParentForm] = useState({ username: '', password: '' });
   const [childName, setChildName] = useState('');
   const [txForm, setTxForm] = useState<TxForm>(emptyTxForm());
+  const [allowanceForm, setAllowanceForm] = useState<AllowanceForm>(emptyAllowanceForm());
   const [childLogin, setChildLogin] = useState({ username: '', password: '' });
   const [photoDataUrl, setPhotoDataUrl] = useState('');
   const [csv, setCsv] = useState('childName,account,type,amountOre,date,comment\n');
@@ -63,12 +89,15 @@ export function App() {
     if (selectedChild) {
       setSelectedChildId(selectedChild.id);
       loadDashboardData(selectedChild.id, selectedAccount);
+      if (user?.role === 'parent') {
+        loadAllowance(selectedChild.id);
+      }
       setChildLogin({ username: selectedChild.childLogin?.username || '', password: '' });
       setPhotoDataUrl('');
       setExpandedTransactionId(null);
       resetDeleteConfirmation();
     }
-  }, [selectedChild?.id, selectedAccount]);
+  }, [selectedChild?.id, selectedAccount, user?.role]);
 
   useEffect(() => {
     if (!error && !notice) {
@@ -149,6 +178,11 @@ export function App() {
     setChildren(childrenData.children);
     setSelectedChildId((current) => current || childrenData.children[0]?.id || null);
     setTransactions(transactionsData.transactions);
+  }
+
+  async function loadAllowance(childId: number, options: RequestInit = {}) {
+    const data = await apiFetch<{ allowance: Allowance | null }>(`/api/children/${childId}/allowance`, options);
+    setAllowanceForm(data.allowance ? allowanceToForm(data.allowance) : emptyAllowanceForm());
   }
 
   async function submitSetup(event: FormEvent) {
@@ -308,6 +342,37 @@ export function App() {
       });
       await loadChildren();
       setNotice('Barninloggningen sparades.');
+    });
+  }
+
+  async function saveAllowance(event: FormEvent) {
+    event.preventDefault();
+    if (!selectedChild) return;
+    await run(async () => {
+      const data = await apiFetch<{ allowance: Allowance; applied: AllowanceApplyResult }>(`/api/children/${selectedChild.id}/allowance`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          account: allowanceForm.account,
+          amountOre: Math.round(Number(allowanceForm.amount) * 100),
+          cadence: 'weekly',
+          nextRunDate: nextDateForWeekday(allowanceForm.weekday),
+          enabled: allowanceForm.enabled,
+        }),
+      });
+      setAllowanceForm(allowanceToForm(data.allowance));
+      await loadDashboardData(selectedChild.id, selectedAccount);
+      const appliedText = data.applied.created ? ` ${data.applied.created} insättning${data.applied.created === 1 ? '' : 'ar'} lades till.` : '';
+      setNotice(`Veckopengen sparades.${appliedText}`);
+    });
+  }
+
+  async function applyAllowances() {
+    if (!selectedChild) return;
+    await run(async () => {
+      const data = await apiFetch<{ applied: AllowanceApplyResult }>('/api/allowances/apply', { method: 'POST' });
+      await loadAllowance(selectedChild.id);
+      await loadDashboardData(selectedChild.id, selectedAccount);
+      setNotice(data.applied.created ? `${data.applied.created} förfallen veckopeng lades till.` : 'Inga förfallna veckopengar att lägga till.');
     });
   }
 
@@ -490,6 +555,53 @@ export function App() {
 
                 {selectedChild ? (
                   <>
+                    <section className="panel wide allowance-panel">
+                      <h3>Veckopeng</h3>
+                      <form className="stack" onSubmit={saveAllowance}>
+                        <div className="allowance-grid">
+                          <TextInput
+                            label="Belopp (kr)"
+                            inputMode="decimal"
+                            value={allowanceForm.amount}
+                            onChange={(value) => setAllowanceForm({ ...allowanceForm, amount: value })}
+                          />
+                          <label>
+                            Konto
+                            <select
+                              value={allowanceForm.account}
+                              onChange={(event) => setAllowanceForm({ ...allowanceForm, account: event.target.value as AccountType })}
+                            >
+                              <option value="cash">Kontant</option>
+                              <option value="fund">Fond</option>
+                            </select>
+                          </label>
+                          <label>
+                            Dag
+                            <select
+                              value={allowanceForm.weekday}
+                              onChange={(event) => setAllowanceForm({ ...allowanceForm, weekday: event.target.value as WeekdayValue })}
+                            >
+                              {WEEKDAYS.map((weekday) => (
+                                <option key={weekday.value} value={weekday.value}>{weekday.label}</option>
+                              ))}
+                            </select>
+                          </label>
+                        </div>
+                        <label className="toggle-row">
+                          <input
+                            type="checkbox"
+                            checked={allowanceForm.enabled}
+                            onChange={(event) => setAllowanceForm({ ...allowanceForm, enabled: event.target.checked })}
+                          />
+                          Aktiv
+                        </label>
+                        <div className="actions">
+                          <button className="primary">Spara veckopeng</button>
+                          <button className="secondary" type="button" onClick={applyAllowances}>Lägg till förfallna</button>
+                        </div>
+                      </form>
+                    </section>
+
                     <section className="panel">
                       <h3>Barninloggning</h3>
                       <form className="stack" onSubmit={saveChildLogin}>
@@ -942,4 +1054,26 @@ function transactionToForm(transaction: Transaction): TxForm {
     date: transaction.date,
     comment: transaction.comment,
   };
+}
+
+function allowanceToForm(allowance: Allowance): AllowanceForm {
+  return {
+    account: allowance.account,
+    amount: (allowance.amountOre / 100).toFixed(2),
+    weekday: weekdayFromDate(allowance.nextRunDate),
+    enabled: allowance.enabled,
+  };
+}
+
+function weekdayFromDate(date: string): WeekdayValue {
+  const weekday = new Date(`${date}T00:00:00.000Z`).getUTCDay();
+  return String(weekday) as WeekdayValue;
+}
+
+function nextDateForWeekday(weekday: WeekdayValue): string {
+  const today = new Date();
+  const start = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+  const daysUntilTarget = (Number(weekday) - start.getUTCDay() + 7) % 7;
+  start.setUTCDate(start.getUTCDate() + daysUntilTarget);
+  return start.toISOString().slice(0, 10);
 }

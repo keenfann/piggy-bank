@@ -153,6 +153,47 @@ describe('children and transactions', () => {
     })).status).toBe(400);
   });
 
+  it('configures weekly allowance and applies due deposits once', async () => {
+    server = createTestServer();
+    await server.setupParent();
+    const child = await server.post('/api/children', { name: 'Anna' });
+    expect(child.status).toBe(201);
+    const childId = child.body.child.id;
+    const today = new Date().toISOString().slice(0, 10);
+
+    const allowance = await server.put(`/api/children/${childId}/allowance`, {
+      account: 'cash',
+      amountOre: 5000,
+      cadence: 'weekly',
+      nextRunDate: today,
+      enabled: true,
+    });
+
+    expect(allowance.status).toBe(200);
+    expect(allowance.body.allowance).toMatchObject({
+      childId,
+      account: 'cash',
+      amountOre: 5000,
+      cadence: 'weekly',
+      enabled: true,
+    });
+    expect(allowance.body.allowance.nextRunDate > today).toBe(true);
+    expect(allowance.body.applied.created).toBe(1);
+
+    const appliedAgain = await server.post('/api/allowances/apply', {});
+    expect(appliedAgain.status).toBe(200);
+    expect(appliedAgain.body.applied.created).toBe(0);
+
+    await server.agent.get(`/api/children/${childId}/transactions?account=cash`).expect(200).expect(({ body }) => {
+      expect(body.transactions).toHaveLength(1);
+      expect(body.transactions.every((tx: { comment: string; amount_ore: number }) => tx.comment === 'Veckopeng' && tx.amount_ore === 5000)).toBe(true);
+    });
+
+    await server.agent.get('/api/children').expect(200).expect(({ body }) => {
+      expect(body.children[0].cashBalanceOre).toBe(5000);
+    });
+  });
+
   it('scopes child users to their own child and blocks exports', async () => {
     server = createTestServer();
     await server.setupParent();

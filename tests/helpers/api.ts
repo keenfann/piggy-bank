@@ -27,6 +27,11 @@ export function createTestServer() {
     return agent.patch(pathname).set('x-csrf-token', token).send(body);
   }
 
+  async function put(pathname: string, body: object) {
+    const token = await csrf();
+    return agent.put(pathname).set('x-csrf-token', token).send(body);
+  }
+
   async function del(pathname: string) {
     const token = await csrf();
     return agent.delete(pathname).set('x-csrf-token', token);
@@ -45,5 +50,5 @@ export function createTestServer() {
     fs.rmSync(uploadDir, { recursive: true, force: true });
   }
 
-  return { app, agent, db, post, patch, del, csrf, setupParent, cleanup };
+  return { app, agent, db, post, put, patch, del, csrf, setupParent, cleanup };
 }

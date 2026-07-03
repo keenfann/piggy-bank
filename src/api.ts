@@ -1,6 +1,7 @@
 export type Role = 'parent' | 'child';
 export type AccountType = 'cash' | 'fund';
 export type TransactionType = 'deposit' | 'withdrawal';
+export type AllowanceCadence = 'weekly' | 'monthly';
 
 export interface User {
   id: number;
@@ -31,6 +32,21 @@ export interface Transaction {
   created_by_user_id: number;
   created_at: string;
   updated_at: string;
+}
+
+export interface Allowance {
+  id: number;
+  childId: number;
+  account: AccountType;
+  amountOre: number;
+  cadence: AllowanceCadence;
+  nextRunDate: string;
+  enabled: boolean;
+}
+
+export interface AllowanceApplyResult {
+  created: number;
+  totalOre: number;
 }
 
 export interface ImportResult {

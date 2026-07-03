@@ -9,7 +9,7 @@ import { resolveTransactionBackupDir, startWeeklyTransactionBackups } from './ba
 import { createDatabase, resolveDbPath } from './db.js';
 import SqliteSessionStore from './session-store.js';
 import { csvEscape, isIsoDate, normalizeAccount, normalizeType, validateTransactionsCsv } from './csv.js';
-import type { AccountRow, AccountType, AppDb, AuthUser, ChildRow, TransactionRow, TransactionType, UserRow } from './types.js';
+import type { AccountRow, AccountType, AllowanceCadence, AllowanceRow, AppDb, AuthUser, ChildRow, TransactionRow, TransactionType, UserRow } from './types.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -29,6 +29,14 @@ interface TransactionInput {
   amountOre?: unknown;
   date?: unknown;
   comment?: unknown;
+}
+
+interface AllowanceInput {
+  account?: unknown;
+  amountOre?: unknown;
+  cadence?: unknown;
+  nextRunDate?: unknown;
+  enabled?: unknown;
 }
 
 export function createApp(options: CreateAppOptions = {}): express.Express {
@@ -140,6 +148,7 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
 
   app.get('/api/children', requireUser(db), (req, res) => {
     const user = requireCurrentUser(db, req);
+    applyDueAllowances(db);
     const children =
       user.role === 'parent'
         ? db.prepare('SELECT * FROM children ORDER BY name COLLATE NOCASE').all<ChildRow>()
@@ -207,11 +216,47 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
     return res.status(201).json({ childLogin: toAuthUser(must(user)) });
   });
 
+  app.get('/api/children/:id/allowance', requireParent(db), (req, res) => {
+    const child = findChild(db, paramId(req.params.id));
+    if (!child) return res.status(404).json({ error: 'Barn hittades inte' });
+    return res.json({ allowance: getAllowance(db, child.id) });
+  });
+
+  app.put('/api/children/:id/allowance', requireParent(db), (req, res) => {
+    const child = findChild(db, paramId(req.params.id));
+    if (!child) return res.status(404).json({ error: 'Barn hittades inte' });
+    const validation = validateAllowanceInput(req.body);
+    if ('error' in validation) return res.status(400).json({ error: validation.error });
+    const now = nowIso();
+    const user = requireCurrentUser(db, req);
+    const existing = getAllowanceRow(db, child.id);
+    if (existing) {
+      db.prepare(
+        `UPDATE allowances
+         SET account_type = ?, amount_ore = ?, cadence = ?, next_run_date = ?, enabled = ?, updated_at = ?
+         WHERE id = ?`
+      ).run(validation.account, validation.amountOre, validation.cadence, validation.nextRunDate, validation.enabled ? 1 : 0, now, existing.id);
+    } else {
+      db.prepare(
+        `INSERT INTO allowances (child_id, account_type, amount_ore, cadence, next_run_date, enabled, created_by_user_id, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).run(child.id, validation.account, validation.amountOre, validation.cadence, validation.nextRunDate, validation.enabled ? 1 : 0, user.id, now, now);
+    }
+    const applied = applyDueAllowances(db, todayIso());
+    return res.json({ allowance: getAllowance(db, child.id), applied });
+  });
+
+  app.post('/api/allowances/apply', requireParent(db), (_req, res) => {
+    const applied = applyDueAllowances(db, todayIso());
+    return res.json({ applied });
+  });
+
   app.get('/api/children/:id/transactions', requireUser(db), (req, res) => {
     const user = requireCurrentUser(db, req);
     const child = findChild(db, paramId(req.params.id));
     if (!child) return res.status(404).json({ error: 'Barn hittades inte' });
     if (!canAccessChild(user, child.id)) return res.status(403).json({ error: 'Åtkomst nekad' });
+    applyDueAllowances(db);
     const account = req.query.account ? normalizeAccount(req.query.account) : null;
     if (req.query.account && !account) return res.status(400).json({ error: 'Ogiltig kontotyp' });
     return res.json({ transactions: listTransactions(db, child.id, account) });
@@ -401,6 +446,106 @@ function validateTransactionInput(db: AppDb, childId: number, body: TransactionI
   return { account, type, amountOre, date, comment };
 }
 
+function validateAllowanceInput(body: AllowanceInput):
+  | { account: AccountType; amountOre: number; cadence: AllowanceCadence; nextRunDate: string; enabled: boolean }
+  | { error: string } {
+  const account = normalizeAccount(body.account);
+  const amountOre = Number(body.amountOre);
+  const cadence = normalizeAllowanceCadence(body.cadence);
+  const nextRunDate = cleanText(body.nextRunDate);
+  const enabled = !(body.enabled === false || body.enabled === 0 || body.enabled === 'false');
+  if (!account) return { error: 'Ogiltig kontotyp' };
+  if (!Number.isInteger(amountOre) || amountOre <= 0) return { error: 'Belopp i öre måste vara ett positivt heltal' };
+  if (!cadence) return { error: 'Kadens måste vara weekly eller monthly' };
+  if (!isIsoDate(nextRunDate)) return { error: 'Nästa datum måste vara YYYY-MM-DD' };
+  return { account, amountOre, cadence, nextRunDate, enabled };
+}
+
+function normalizeAllowanceCadence(value: unknown): AllowanceCadence | null {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (normalized === 'weekly' || normalized === 'veckovis') return 'weekly';
+  if (normalized === 'monthly' || normalized === 'manadsvis' || normalized === 'månadsvis') return 'monthly';
+  return null;
+}
+
+function getAllowanceRow(db: AppDb, childId: number): AllowanceRow | undefined {
+  return db.prepare('SELECT * FROM allowances WHERE child_id = ?').get<AllowanceRow>(childId);
+}
+
+function getAllowance(db: AppDb, childId: number) {
+  const row = getAllowanceRow(db, childId);
+  if (!row) return null;
+  return {
+    id: row.id,
+    childId: row.child_id,
+    account: row.account_type,
+    amountOre: row.amount_ore,
+    cadence: row.cadence,
+    nextRunDate: row.next_run_date,
+    enabled: Boolean(row.enabled),
+  };
+}
+
+function applyDueAllowances(db: AppDb, asOfDate = todayIso()): { created: number; totalOre: number } {
+  const allowances = db
+    .prepare('SELECT * FROM allowances WHERE enabled = 1 AND next_run_date <= ? ORDER BY next_run_date ASC, id ASC')
+    .all<AllowanceRow>(asOfDate);
+  if (!allowances.length) return { created: 0, totalOre: 0 };
+
+  const insertTransaction = db.prepare(
+    `INSERT INTO transactions (account_id, type, amount_ore, date, comment, created_by_user_id, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+  );
+  const insertRun = db.prepare(
+    `INSERT OR IGNORE INTO allowance_runs (allowance_id, scheduled_date, transaction_id, created_at)
+     VALUES (?, ?, ?, ?)`
+  );
+  const updateAllowance = db.prepare('UPDATE allowances SET next_run_date = ?, updated_at = ? WHERE id = ?');
+  const affectedAccountIds = new Set<number>();
+  let created = 0;
+  let totalOre = 0;
+
+  db.exec('BEGIN;');
+  try {
+    for (const allowance of allowances) {
+      const account = findAccount(db, allowance.child_id, allowance.account_type);
+      if (!account) continue;
+      let runDate = allowance.next_run_date;
+      let guard = 0;
+      while (runDate <= asOfDate) {
+        guard += 1;
+        if (guard > 520) throw new Error('För många förfallna veckopengar att skapa på en gång');
+        const alreadyApplied = db
+          .prepare('SELECT id FROM allowance_runs WHERE allowance_id = ? AND scheduled_date = ?')
+          .get<{ id: number }>(allowance.id, runDate);
+        if (!alreadyApplied) {
+          const now = nowIso();
+          const result = insertTransaction.run(account.id, 'deposit', allowance.amount_ore, runDate, 'Veckopeng', allowance.created_by_user_id, now, now);
+          const transactionId = Number(result.lastInsertRowid);
+          const run = insertRun.run(allowance.id, runDate, transactionId, now);
+          if (run.changes > 0) {
+            created += 1;
+            totalOre += allowance.amount_ore;
+            affectedAccountIds.add(account.id);
+          } else {
+            db.prepare('DELETE FROM transactions WHERE id = ?').run(transactionId);
+          }
+        }
+        runDate = nextAllowanceDate(runDate, allowance.cadence);
+      }
+      updateAllowance.run(runDate, nowIso(), allowance.id);
+    }
+    for (const accountId of affectedAccountIds) {
+      recalculateAccountBalances(db, accountId);
+    }
+    db.exec('COMMIT;');
+  } catch (error) {
+    db.exec('ROLLBACK;');
+    throw error;
+  }
+  return { created, totalOre };
+}
+
 function buildChildSummary(db: AppDb, child: ChildRow) {
   const balances = db
     .prepare(
@@ -585,6 +730,30 @@ function nullableText(value: unknown): string | null {
 
 function nowIso(): string {
   return new Date().toISOString();
+}
+
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function nextAllowanceDate(date: string, cadence: AllowanceCadence): string {
+  return cadence === 'weekly' ? addDays(date, 7) : addMonths(date, 1);
+}
+
+function addDays(date: string, days: number): string {
+  const next = new Date(`${date}T00:00:00.000Z`);
+  next.setUTCDate(next.getUTCDate() + days);
+  return next.toISOString().slice(0, 10);
+}
+
+function addMonths(date: string, months: number): string {
+  const current = new Date(`${date}T00:00:00.000Z`);
+  const day = current.getUTCDate();
+  const targetYear = current.getUTCFullYear();
+  const targetMonth = current.getUTCMonth() + months;
+  const lastDay = new Date(Date.UTC(targetYear, targetMonth + 1, 0)).getUTCDate();
+  const next = new Date(Date.UTC(targetYear, targetMonth, Math.min(day, lastDay)));
+  return next.toISOString().slice(0, 10);
 }
 
 function must<T>(value: T | undefined | null): T {

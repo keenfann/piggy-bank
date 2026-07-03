@@ -94,6 +94,54 @@ describe('App', () => {
     expect(await screen.findByText('Föräldern partner skapades.')).toBeInTheDocument();
   });
 
+  it('saves allowance settings from the selected child settings', async () => {
+    const nextMonday = nextDateForWeekday(1);
+    const mondayAfterNext = addDays(nextMonday, 7);
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith('/api/csrf')) return json({ csrfToken: 'token' });
+      if (url.endsWith('/api/setup/status')) return json({ needsSetup: false });
+      if (url.endsWith('/api/auth/me')) return json({ user: { id: 1, username: 'parent', role: 'parent', childId: null }, csrfToken: 'token' });
+      if (url.endsWith('/api/children')) return json({ children: [{ id: 1, name: 'Anna', photoUrl: null, cashBalanceOre: 2500, fundBalanceOre: 0, childLogin: null }] });
+      if (url.endsWith('/api/children/1/allowance') && init?.method === 'PUT') {
+        return json({
+          allowance: { id: 1, childId: 1, account: 'cash', amountOre: 2500, cadence: 'weekly', nextRunDate: mondayAfterNext, enabled: true },
+          applied: { created: 1, totalOre: 2500 },
+        });
+      }
+      if (url.endsWith('/api/children/1/allowance')) return json({ allowance: null });
+      if (url.includes('/api/children/1/transactions')) return json({ transactions: [] });
+      return json({});
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<App />);
+    await screen.findByRole('heading', { name: 'Annas sparande' });
+    await userEvent.click(screen.getByRole('button', { name: 'Användare parent' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Inställningar' }));
+
+    const allowancePanel = screen.getByRole('heading', { name: 'Veckopeng' }).closest('section');
+    expect(allowancePanel).not.toBeNull();
+    const allowanceForm = within(allowancePanel!);
+    expect(allowanceForm.queryByLabelText('Kadens')).not.toBeInTheDocument();
+    expect(allowanceForm.queryByLabelText('Nästa datum')).not.toBeInTheDocument();
+    await userEvent.type(allowanceForm.getByLabelText('Belopp (kr)'), '25');
+    await userEvent.selectOptions(allowanceForm.getByLabelText('Dag'), '1');
+    await userEvent.click(allowanceForm.getByRole('button', { name: 'Spara veckopeng' }));
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/children/1/allowance', expect.objectContaining({
+      method: 'PUT',
+      body: JSON.stringify({
+        account: 'cash',
+        amountOre: 2500,
+        cadence: 'weekly',
+        nextRunDate: nextMonday,
+        enabled: true,
+      }),
+    }));
+    expect(await screen.findByText('Veckopengen sparades. 1 insättning lades till.')).toBeInTheDocument();
+  });
+
   it('refreshes balance cards when transaction history is reloaded', async () => {
     let childrenRequests = 0;
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
@@ -266,3 +314,17 @@ describe('App', () => {
     expect(comment).not.toBeVisible();
   });
 });
+
+function nextDateForWeekday(weekday: number): string {
+  const today = new Date();
+  const start = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+  const daysUntilTarget = (weekday - start.getUTCDay() + 7) % 7;
+  start.setUTCDate(start.getUTCDate() + daysUntilTarget);
+  return start.toISOString().slice(0, 10);
+}
+
+function addDays(date: string, days: number): string {
+  const next = new Date(`${date}T00:00:00.000Z`);
+  next.setUTCDate(next.getUTCDate() + days);
+  return next.toISOString().slice(0, 10);
+}

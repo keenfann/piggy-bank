@@ -3,6 +3,7 @@ import type { DatabaseSync } from './sqlite.js';
 export type Role = 'parent' | 'child';
 export type AccountType = 'cash' | 'fund';
 export type TransactionType = 'deposit' | 'withdrawal';
+export type AllowanceCadence = 'weekly' | 'monthly';
 
 export interface AppDb extends DatabaseSync {}
 
@@ -41,6 +42,19 @@ export interface TransactionRow {
   balance_ore: number;
   date: string;
   comment: string;
+  created_by_user_id: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AllowanceRow {
+  id: number;
+  child_id: number;
+  account_type: AccountType;
+  amount_ore: number;
+  cadence: AllowanceCadence;
+  next_run_date: string;
+  enabled: number;
   created_by_user_id: number;
   created_at: string;
   updated_at: string;
