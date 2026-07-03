@@ -76,6 +76,53 @@ describe('children and transactions', () => {
     });
   });
 
+  it('updates transactions and recalculates affected account balances', async () => {
+    server = createTestServer();
+    await server.setupParent();
+    const child = await server.post('/api/children', { name: 'Anna' });
+    expect(child.status).toBe(201);
+    const childId = child.body.child.id;
+
+    const first = await server.post(`/api/children/${childId}/transactions`, {
+      account: 'cash',
+      type: 'deposit',
+      amountOre: 10000,
+      date: '2026-05-05',
+      comment: 'Present',
+    });
+    expect(first.status).toBe(201);
+    const second = await server.post(`/api/children/${childId}/transactions`, {
+      account: 'cash',
+      type: 'deposit',
+      amountOre: 2500,
+      date: '2026-05-06',
+      comment: 'Extra',
+    });
+    expect(second.status).toBe(201);
+
+    const update = await server.patch(`/api/transactions/${first.body.transaction.id}`, {
+      account: 'fund',
+      type: 'deposit',
+      amountOre: 4000,
+      date: '2026-05-04',
+      comment: 'Flyttad till fond',
+    });
+    expect(update.status).toBe(200);
+    expect(update.body.transaction.account_type).toBe('fund');
+    expect(update.body.transaction.balance_ore).toBe(4000);
+
+    await server.agent.get('/api/children').expect(200).expect(({ body }) => {
+      expect(body.children[0].cashBalanceOre).toBe(2500);
+      expect(body.children[0].fundBalanceOre).toBe(4000);
+    });
+
+    await server.agent.get(`/api/children/${childId}/transactions?account=cash`).expect(200).expect(({ body }) => {
+      expect(body.transactions.map((tx: { comment: string; balance_ore: number }) => [tx.comment, tx.balance_ore])).toEqual([
+        ['Extra', 2500],
+      ]);
+    });
+  });
+
   it('rejects invalid transaction data', async () => {
     server = createTestServer();
     await server.setupParent();

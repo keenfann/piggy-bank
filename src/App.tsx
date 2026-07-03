@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
-import { FaChartLine, FaCheck, FaPiggyBank, FaTrashCan, FaWallet } from 'react-icons/fa6';
+import { FaChartLine, FaCheck, FaPen, FaPiggyBank, FaTrashCan, FaWallet } from 'react-icons/fa6';
 import { apiFetch, ensureCsrf, resetCsrf, type AccountType, type Child, type ImportResult, type Transaction, type TransactionType, type User } from './api';
 
 declare const __APP_VERSION__: string;
@@ -37,6 +37,7 @@ export function App() {
   const [appSection, setAppSection] = useState<AppSection>('dashboard');
   const [txModalOpen, setTxModalOpen] = useState(false);
   const [savingTransaction, setSavingTransaction] = useState(false);
+  const [editingTransactionId, setEditingTransactionId] = useState<number | null>(null);
   const [expandedTransactionId, setExpandedTransactionId] = useState<number | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [setupForm, setSetupForm] = useState({ username: 'parent', password: '' });
@@ -93,14 +94,14 @@ export function App() {
     if (!txModalOpen) return;
     setSavingTransaction(false);
 
-    function closeTransactionModal(event: KeyboardEvent) {
+    function closeTransactionModalWithEscape(event: KeyboardEvent) {
       if (event.key === 'Escape') {
-        setTxModalOpen(false);
+        closeTransactionModal();
       }
     }
 
-    document.addEventListener('keydown', closeTransactionModal);
-    return () => document.removeEventListener('keydown', closeTransactionModal);
+    document.addEventListener('keydown', closeTransactionModalWithEscape);
+    return () => document.removeEventListener('keydown', closeTransactionModalWithEscape);
   }, [txModalOpen]);
 
   useEffect(() => {
@@ -185,7 +186,7 @@ export function App() {
       setTransactions([]);
       setSelectedAccount('cash');
       setAppSection('dashboard');
-      setTxModalOpen(false);
+      closeTransactionModal();
       setSavingTransaction(false);
       setView('login');
       await ensureCsrf();
@@ -218,16 +219,17 @@ export function App() {
     });
   }
 
-  async function addTransaction(event: FormEvent) {
+  async function saveTransaction(event: FormEvent) {
     event.preventDefault();
     if (!selectedChild || savingTransaction) return;
     setSavingTransaction(true);
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), TRANSACTION_SAVE_TIMEOUT_MS);
+    const isEditing = editingTransactionId !== null;
     try {
       await run(async () => {
-        await apiFetch(`/api/children/${selectedChild.id}/transactions`, {
-          method: 'POST',
+        await apiFetch(isEditing ? `/api/transactions/${editingTransactionId}` : `/api/children/${selectedChild.id}/transactions`, {
+          method: isEditing ? 'PATCH' : 'POST',
           signal: controller.signal,
           body: JSON.stringify({
             account: txForm.account,
@@ -239,13 +241,33 @@ export function App() {
         });
         setTxForm(emptyTxForm());
         await loadDashboardData(selectedChild.id, selectedAccount, { signal: controller.signal });
-        setTxModalOpen(false);
-        setNotice('Transaktionen sparades.');
+        closeTransactionModal();
+        setNotice(isEditing ? 'Transaktionen uppdaterades.' : 'Transaktionen sparades.');
       });
     } finally {
       window.clearTimeout(timeout);
       setSavingTransaction(false);
     }
+  }
+
+  function openCreateTransactionModal() {
+    setTxForm(emptyTxForm());
+    setEditingTransactionId(null);
+    resetDeleteConfirmation();
+    setTxModalOpen(true);
+  }
+
+  function openEditTransactionModal(transaction: Transaction) {
+    setTxForm(transactionToForm(transaction));
+    setEditingTransactionId(transaction.id);
+    resetDeleteConfirmation();
+    setTxModalOpen(true);
+  }
+
+  function closeTransactionModal() {
+    setTxModalOpen(false);
+    setEditingTransactionId(null);
+    setTxForm(emptyTxForm());
   }
 
   function toggleTransactionComment(id: number) {
@@ -429,7 +451,7 @@ export function App() {
           type="button"
           aria-label="Ny transaktion"
           title="Ny transaktion"
-          onClick={() => setTxModalOpen(true)}
+          onClick={openCreateTransactionModal}
         >
           +
         </button>
@@ -600,15 +622,26 @@ export function App() {
                         >
                           <p>{tx.comment || 'Ingen kommentar'}</p>
                           {isParent && (
-                            <button
-                              className={isDeleteConfirming ? 'comment-delete confirming' : 'comment-delete'}
-                              type="button"
-                              aria-label={isDeleteConfirming ? 'Bekräfta borttagning' : 'Ta bort transaktion'}
-                              title={isDeleteConfirming ? 'Bekräfta borttagning' : 'Ta bort transaktion'}
-                              onClick={() => requestTransactionDelete(tx.id)}
-                            >
-                              {isDeleteConfirming ? <FaCheck aria-hidden="true" /> : <FaTrashCan aria-hidden="true" />}
-                            </button>
+                            <div className="transaction-card-actions">
+                              <button
+                                className="comment-action comment-edit"
+                                type="button"
+                                aria-label="Redigera transaktion"
+                                title="Redigera transaktion"
+                                onClick={() => openEditTransactionModal(tx)}
+                              >
+                                <FaPen aria-hidden="true" />
+                              </button>
+                              <button
+                                className={isDeleteConfirming ? 'comment-action comment-delete confirming' : 'comment-action comment-delete'}
+                                type="button"
+                                aria-label={isDeleteConfirming ? 'Bekräfta borttagning' : 'Ta bort transaktion'}
+                                title={isDeleteConfirming ? 'Bekräfta borttagning' : 'Ta bort transaktion'}
+                                onClick={() => requestTransactionDelete(tx.id)}
+                              >
+                                {isDeleteConfirming ? <FaCheck aria-hidden="true" /> : <FaTrashCan aria-hidden="true" />}
+                              </button>
+                            </div>
                           )}
                         </div>
                       </article>
@@ -627,7 +660,7 @@ export function App() {
         </div>
       )}
       {isParent && selectedChild && txModalOpen && (
-        <div className="modal-backdrop" role="presentation" onClick={() => setTxModalOpen(false)}>
+        <div className="modal-backdrop" role="presentation" onClick={closeTransactionModal}>
           <section
             className="panel modal"
             role="dialog"
@@ -636,9 +669,9 @@ export function App() {
             onClick={(event) => event.stopPropagation()}
           >
             <div className="modal-heading">
-              <h3 id="transaction-modal-title">Ny transaktion</h3>
+              <h3 id="transaction-modal-title">{editingTransactionId === null ? 'Ny transaktion' : 'Redigera transaktion'}</h3>
             </div>
-            <form className="stack" onSubmit={addTransaction} aria-busy={savingTransaction}>
+            <form className="stack" onSubmit={saveTransaction} aria-busy={savingTransaction}>
               <label>
                 Typ
                 <select value={txForm.type} onChange={(event) => setTxForm({ ...txForm, type: event.target.value as TransactionType })}>
@@ -657,7 +690,7 @@ export function App() {
               <TextInput label="Datum" type="date" value={txForm.date} onChange={(value) => setTxForm({ ...txForm, date: value })} />
               <TextInput label="Kommentar" value={txForm.comment} onChange={(value) => setTxForm({ ...txForm, comment: value })} />
               <div className="actions">
-                <button className="secondary" type="button" onClick={() => setTxModalOpen(false)}>Avbryt</button>
+                <button className="secondary" type="button" onClick={closeTransactionModal}>Avbryt</button>
                 <button className="primary save-transaction-button" disabled={savingTransaction}>{savingTransaction ? 'Sparar...' : 'Spara'}</button>
               </div>
             </form>
@@ -899,4 +932,14 @@ function formatSek(amountOre: number): string {
 
 function formatTransactionAmount(transaction: Transaction): string {
   return transaction.type === 'withdrawal' ? `-${formatSek(transaction.amount_ore)}` : formatSek(transaction.amount_ore);
+}
+
+function transactionToForm(transaction: Transaction): TxForm {
+  return {
+    account: transaction.account_type,
+    type: transaction.type,
+    amount: (transaction.amount_ore / 100).toFixed(2),
+    date: transaction.date,
+    comment: transaction.comment,
+  };
 }

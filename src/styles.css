@@ -1155,7 +1155,7 @@ textarea {
 }
 
 .transaction-card-comment[aria-hidden="true"] p,
-.transaction-card-comment[aria-hidden="true"] .comment-delete {
+.transaction-card-comment[aria-hidden="true"] .transaction-card-actions {
   visibility: hidden;
 }
 
@@ -1179,20 +1179,38 @@ textarea {
   margin-top: 5px;
 }
 
-.comment-delete {
+.transaction-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.comment-action {
   width: 32px;
   height: 32px;
   min-height: 32px;
   border-radius: 50%;
   padding: 0;
   background: transparent;
-  color: var(--error);
   box-shadow: none;
 }
 
-.comment-delete svg {
+.comment-action svg {
   width: 14px;
   height: 14px;
+}
+
+.comment-edit {
+  color: var(--secondary);
+}
+
+.comment-edit:hover,
+.comment-edit:focus-visible {
+  background: var(--secondary-container);
+}
+
+.comment-delete {
+  color: var(--error);
 }
 
 .comment-delete:hover,

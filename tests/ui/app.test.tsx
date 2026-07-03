@@ -166,6 +166,73 @@ describe('App', () => {
     expect(fetchMock).toHaveBeenCalledWith('/api/transactions/10', expect.objectContaining({ method: 'DELETE' }));
   });
 
+  it('edits an existing transaction from the unfolded transaction comment', async () => {
+    let transaction = {
+      id: 10,
+      account_id: 1,
+      child_id: 1,
+      account_type: 'cash',
+      type: 'deposit',
+      amount_ore: 5000,
+      balance_ore: 5000,
+      date: '2026-05-05',
+      comment: 'Födelsedagspresent',
+      created_by_user_id: 1,
+      created_at: '2026-05-05T00:00:00.000Z',
+      updated_at: '2026-05-05T00:00:00.000Z',
+    };
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith('/api/csrf')) return json({ csrfToken: 'token' });
+      if (url.endsWith('/api/setup/status')) return json({ needsSetup: false });
+      if (url.endsWith('/api/auth/me')) return json({ user: { id: 1, username: 'parent', role: 'parent', childId: null }, csrfToken: 'token' });
+      if (url.endsWith('/api/children')) return json({ children: [{ id: 1, name: 'Anna', photoUrl: null, cashBalanceOre: transaction.amount_ore, fundBalanceOre: 0, childLogin: null }] });
+      if (url.endsWith('/api/transactions/10') && init?.method === 'PATCH') {
+        const body = JSON.parse(String(init.body));
+        transaction = {
+          ...transaction,
+          account_type: body.account,
+          type: body.type,
+          amount_ore: body.amountOre,
+          balance_ore: body.amountOre,
+          date: body.date,
+          comment: body.comment,
+        };
+        return json({ transaction });
+      }
+      if (url.includes('/api/children/1/transactions')) {
+        return json({ transactions: [transaction] });
+      }
+      return json({});
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<App />);
+    const card = await screen.findByRole('button', { name: 'Visa kommentar för transaktion 2026-05-05' });
+    await userEvent.click(card);
+    await userEvent.click(screen.getByRole('button', { name: 'Redigera transaktion' }));
+
+    expect(screen.getByRole('heading', { name: 'Redigera transaktion' })).toBeInTheDocument();
+    await userEvent.selectOptions(screen.getByLabelText('Typ'), 'withdrawal');
+    await userEvent.clear(screen.getByLabelText('Belopp (kr)'));
+    await userEvent.type(screen.getByLabelText('Belopp (kr)'), '75.50');
+    await userEvent.clear(screen.getByLabelText('Kommentar'));
+    await userEvent.type(screen.getByLabelText('Kommentar'), 'Korrigerad');
+    await userEvent.click(screen.getByRole('button', { name: /^Spara$/ }));
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/transactions/10', expect.objectContaining({
+      method: 'PATCH',
+      body: JSON.stringify({
+        account: 'cash',
+        type: 'withdrawal',
+        amountOre: 7550,
+        date: '2026-05-05',
+        comment: 'Korrigerad',
+      }),
+    }));
+    expect(await screen.findByText('Transaktionen uppdaterades.')).toBeInTheDocument();
+  });
+
   it('unfolds and folds a transaction comment when clicking a transaction card', async () => {
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
